@@ -1,4 +1,6 @@
 import re
+from functools import lru_cache
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -48,15 +50,24 @@ FEATURE_COLUMNS = (
         "delta",
         "delta_chi",
         "delta_S",
+        "delta_H",
         "n_elements",
     ]
     + ["proc_" + p for p in PROCESSING]
     + ["calculated density"]
 )
+PHYSICS = ["delta", "delta_H", "delta_S", "mean_valence_electrons", "mean_melting_point", "delta_chi"]
+MODEL_COLUMNS = PHYSICS + ["proc_" + p for p in PROCESSING]
 
 _TOKEN = re.compile(r"([A-Z][a-z]?)(\d+(?:\.\d+)?)?")
 _PROPS = np.array([ELEMENTS[s] for s in SYMBOLS], dtype=float)
 _RADIUS, _CHI, _MELT, _VEC, _MASS, _DENSITY = _PROPS.T
+
+
+@lru_cache(maxsize=1)
+def _miedema():
+    table = pd.read_csv(Path(__file__).with_name("miedema_matrix.csv"), index_col=0)
+    return table.loc[SYMBOLS, SYMBOLS].to_numpy(dtype=float)
 
 
 def parse_formula(text):
@@ -109,6 +120,7 @@ def describe(fractions):
         "delta": 100 * np.sqrt(np.sum(c * (1 - _RADIUS / rbar) ** 2)),
         "delta_chi": np.sqrt(np.sum(c * (_CHI - chibar) ** 2)),
         "delta_S": -R * np.sum(c[nz] * np.log(c[nz])),
+        "delta_H": float(2 * c @ _miedema() @ c),
         "n_elements": int(nz.sum()),
         "calculated density": mass / np.sum(c * _MASS / _DENSITY),
     }
@@ -127,6 +139,7 @@ def featurize(fractions, processing):
         "delta",
         "delta_chi",
         "delta_S",
+        "delta_H",
         "n_elements",
         "calculated density",
     ]:

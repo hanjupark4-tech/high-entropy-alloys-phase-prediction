@@ -2,9 +2,6 @@ import pandas as pd
 raw = pd.read_csv("High Entropy Alloy Properties.csv")  
 
 import re
-import pandas as pd
-
-raw = pd.read_csv("High Entropy Alloy Properties.csv")
 
 def clean_col(col):
     if col == 'FORMULA':

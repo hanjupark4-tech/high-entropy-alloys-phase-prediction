@@ -6,6 +6,7 @@ import numpy as np
 R= 8.3145
 
 data = pd.read_csv("cleaned_data.csv").reset_index(drop=True)
+Hf = pd.read_csv("MiedemaLiquidDeltaHf.tsv", sep=r"\s+")
 pattern = r'([A-Z][a-z]?)(\d+(?:\.\d+)?)?'
 
 comp_list = []
@@ -69,7 +70,20 @@ delta_S = pd.Series(delta_S, index=data.index, name='delta_S')
 n_elements = pd.Series(n_elements, index=data.index, name='n_elements')
 
 proc = pd.get_dummies(data['processing method'], prefix='proc', dtype=int)
-feature = pd.concat([comp_df, mean_props, delta, delta_chi, delta_S, n_elements, proc, data[['calculated density']]], axis=1)
 
-feature.to_csv('features.csv')
+mask = Hf[['elem_A', 'elem_B']].isin(vec.keys()).all(axis=1)
+Hf_pairs = Hf[mask]
+tri = Hf_pairs.pivot(index='elem_B', columns='elem_A', values='delta_Hf')
+tri = tri.reindex(index=comp_df.columns, columns=comp_df.columns)
+tri = tri.fillna(0)
+H = tri + tri.T
+
+C = comp_df.values
+Hm = H.values
+
+CH = C @ Hm
+delta_H = 2 * (CH * C).sum(axis=1)
+delta_H = pd.Series(delta_H, index=data.index, name='delta_H')
+feature = pd.concat([comp_df, mean_props, delta, delta_chi, delta_S, delta_H, n_elements, proc, data[['calculated density']]], axis=1)
+feature.to_csv('features.csv', index=True)
 data['bcc/fcc/other'].to_csv('target.csv')

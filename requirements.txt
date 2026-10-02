@@ -2,4 +2,4 @@ streamlit>=1.40
 pandas
 numpy
 joblib
-scikit-learn==1.7.2
+scikit-learn==1.9.1
