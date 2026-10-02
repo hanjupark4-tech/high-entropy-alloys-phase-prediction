@@ -2,7 +2,7 @@
 
 Predicting which phases a high-entropy alloy forms (BCC, FCC, B2, Laves, secondary phase) and which phase combinations are most likely, from its composition and processing route alone.
 
-Live app: https://high-entropy-alloys-phase-prediction-g8jmbnvpbsrqjpny43agpd.streamlit.app/
+Live app: https://high-entropy-alloys-phase-prediction-ntwaaikt4rzo4mdrdari4f.streamlit.app/
 
 The model uses six physics descriptors from Hume-Rothery-style stability rules (atomic size mismatch, mixing enthalpy, mixing entropy, valence electron concentration, mean melting point, electronegativity spread) plus the processing route. It is evaluated with composition-grouped cross-validation, which avoids the data leakage typical of alloy datasets.
 
