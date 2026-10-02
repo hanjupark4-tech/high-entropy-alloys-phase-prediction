@@ -20,4 +20,7 @@ raw = raw.drop(columns=['reference id', 'exp. density', 'exp. young modulus', 't
                         'test temperature', 'o content', 'n content','c content', 'elongation plastic', 
                         'grain size', 'uts','calculated young modulus', 'elongation'])
 
-raw = raw.dropna(subset=['microstructure', 'processing method'])
+raw = raw.dropna(subset=['processing method', 'microstructure'])
+
+clean = raw[['formula','processing method', 'calculated density', 'bcc/fcc/other', 'microstructure', 'hv','ys']]
+clean.to_csv('cleaned_data.csv', index=False)
