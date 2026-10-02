@@ -107,7 +107,7 @@ cleaned_data.csv --> train_final.py --> model.joblib --> app.py
 ## Data
 
 - 1354 records, 522 unique compositions after normalising to atomic fractions
-- Source: High Entropy Alloy Properties dataset (SOURCE LINK TO BE ADDED)
+- Source: High Entropy Alloy Properties dataset (https://www.kaggle.com/datasets/sethpointaverage/high-entropy-alloys-properties/data)
 - Pair mixing enthalpies for the Miedema model come from the `MiedemaLiquidDeltaHf.tsv` data file shipped with matminer
 - CSV files are excluded from the repository by `.gitignore`, except `miedema_matrix.csv`. Place the raw CSV in the project folder and run the scripts in order.
 
