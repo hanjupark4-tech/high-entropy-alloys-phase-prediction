@@ -5,7 +5,3 @@ __pycache__/
 *.ipynb
 !miedema_matrix.csv
 .vscode/
-!cleaned_data.csv
-!features.csv
-!labels.csv
-!target.csv
