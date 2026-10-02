@@ -16,8 +16,6 @@ for formula in data['formula']:
 comp_df = pd.DataFrame(comp_list, index=data.index).fillna(0)
 comp_df = comp_df.div(comp_df.sum(axis=1), axis=0)
 
-df = pd.concat([data, comp_df], axis=1)
-
 Properties = pd.DataFrame(columns=['atomic_radius', 'electronegativity', 'melting_point'])  
 for element in comp_df.columns: 
     el = Element(element)
