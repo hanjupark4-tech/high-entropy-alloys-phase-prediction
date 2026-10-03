@@ -82,7 +82,9 @@ print(ap.groupby(["phase", "fs"])["ap"].agg(["mean", "std"]).unstack().round(3).
 print(ap.groupby("phase")["prevalence"].mean().round(3).loc[phases])
 
 def permutation_importance_phase(model, phase, fold, cols, seed=0):
-    # drop in alloy-level AP when one descriptor is shuffled within each test fold
+    # drop in alloy-level AP when one descriptor is shuffled across the alloys of each test fold;
+    # one value per composition, applied to all its rows, so repeated alloys are not over-weighted
+    # (descriptors are identical within a composition up to rounding of the formula)
     rng = np.random.default_rng(seed)
     X = feature[cols]
     base = pd.Series(0.0, index=feature.index)
@@ -93,7 +95,9 @@ def permutation_importance_phase(model, phase, fold, cols, seed=0):
         base[test] = m.predict_proba(X[test])[:, 1]
         for c in cols:
             Xp = X[test].copy()
-            Xp[c] = rng.permutation(Xp[c].values)
+            per_alloy = Xp[c].groupby(group[test]).first()
+            shuffled = pd.Series(rng.permutation(per_alloy.values), index=per_alloy.index)
+            Xp[c] = group[test].map(shuffled).values
             perm[c][test] = m.predict_proba(Xp)[:, 1]
     true = (Y[phase].groupby(group).mean() >= 0.5).astype(int)
     ap0 = average_precision_score(true, base.groupby(group).mean().loc[true.index])

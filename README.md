@@ -26,18 +26,18 @@ One random forest per phase. The metric is average precision (AP). A model with 
 - **The gap grows for harder phases.** It is 0.03 to 0.07 for B2 and secondary phases and 0.12 for Laves. Laves formation probably depends on which elements are present, not only on bulk descriptors. Adding the processing route recovers part of the gap (0.47 to 0.55).
 - **Laves is the hardest phase.** It appears in about 7% of alloys and its AP varies the most across seeds.
 
-Permutation importance of each physics descriptor (random forest, drop in AP when the feature is shuffled, seed 0):
+Permutation importance of each physics descriptor (random forest, seed 0): the drop in alloy-level AP when the descriptor is shuffled across the alloys of each held-out fold, with one value per composition so repeated alloys are not over-weighted.
 
 | Descriptor | BCC | FCC | B2 | Laves | Secondary |
 |---|---|---|---|---|---|
-| delta (size mismatch) | 0.009 | 0.008 | 0.181 | 0.077 | 0.122 |
-| delta H mix | 0.007 | 0.007 | 0.258 | 0.196 | 0.063 |
-| delta S mix | 0.009 | 0.006 | 0.148 | -0.021 | 0.119 |
-| VEC | 0.120 | 0.286 | 0.209 | 0.165 | 0.100 |
-| mean melting point | 0.030 | 0.017 | 0.258 | 0.175 | 0.108 |
-| delta chi | 0.011 | 0.009 | 0.096 | 0.029 | 0.107 |
+| delta (size mismatch) | 0.008 | 0.009 | 0.171 | 0.119 | 0.118 |
+| delta H mix | 0.003 | 0.004 | 0.189 | 0.182 | 0.100 |
+| delta S mix | 0.009 | 0.016 | 0.138 | -0.009 | 0.127 |
+| VEC | 0.139 | 0.293 | 0.164 | 0.202 | 0.104 |
+| mean melting point | 0.032 | 0.032 | 0.148 | 0.275 | 0.155 |
+| delta chi | 0.013 | 0.017 | 0.078 | 0.036 | 0.113 |
 
-VEC alone drives BCC and FCC, matching the classical VEC rule. B2 and Laves depend on mixing enthalpy and melting point, while size mismatch matters less for Laves here. Correlated descriptors share importance, so a low value does not prove a feature is unimportant.
+VEC alone drives BCC and FCC, matching the classical VEC rule. Laves depends most on melting point, VEC and mixing enthalpy. B2 depends most on mixing enthalpy and size mismatch, but every descriptor contributes. Correlated descriptors share importance, so a low value does not prove a feature is unimportant.
 
 ### Phase combinations
 
