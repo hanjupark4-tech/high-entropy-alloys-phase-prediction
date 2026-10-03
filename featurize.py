@@ -51,13 +51,14 @@ FEATURE_COLUMNS = (
         "delta_chi",
         "delta_S",
         "delta_H",
+        "h_min_pair",
         "n_elements",
     ]
     + ["proc_" + p for p in PROCESSING]
     + ["calculated density"]
 )
 PHYSICS = ["delta", "delta_H", "delta_S", "mean_valence_electrons", "mean_melting_point", "delta_chi"]
-MODEL_COLUMNS = PHYSICS + ["proc_" + p for p in PROCESSING]
+MODEL_COLUMNS = PHYSICS + ["h_min_pair"] + ["proc_" + p for p in PROCESSING]
 
 _TOKEN = re.compile(r"([A-Z][a-z]?)(\d+(?:\.\d+)?)?")
 _PROPS = np.array([ELEMENTS[s] for s in SYMBOLS], dtype=float)
@@ -111,6 +112,7 @@ def describe(fractions):
     chibar = c @ _CHI
     mass = c @ _MASS
     nz = c > 0
+    pair_h = _miedema()[np.ix_(nz, nz)]
     return {
         "c": c,
         "mean_atomic_radius": rbar,
@@ -121,6 +123,7 @@ def describe(fractions):
         "delta_chi": np.sqrt(np.sum(c * (_CHI - chibar) ** 2)),
         "delta_S": -R * np.sum(c[nz] * np.log(c[nz])),
         "delta_H": float(2 * c @ _miedema() @ c),
+        "h_min_pair": float(pair_h[np.triu_indices(len(pair_h), 1)].min()),
         "n_elements": int(nz.sum()),
         "calculated density": mass / np.sum(c * _MASS / _DENSITY),
     }
@@ -140,6 +143,7 @@ def featurize(fractions, processing):
         "delta_chi",
         "delta_S",
         "delta_H",
+        "h_min_pair",
         "n_elements",
         "calculated density",
     ]:

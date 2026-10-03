@@ -1,9 +1,6 @@
 import re
 import pandas as pd
 import numpy as np
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.dummy import DummyClassifier
 from sklearn.ensemble import RandomForestClassifier
@@ -103,20 +100,3 @@ grouped = importance[physics].copy()
 grouped["Process"] = importance[proc].sum()
 grouped = grouped.sort_values(ascending=False)
 print(grouped)
-
-symbols = {
-    "delta": r"$\delta$",
-    "delta_H": r"$\Delta H_{\mathrm{mix}}$",
-    "delta_S": r"$\Delta S_{\mathrm{mix}}$",
-    "delta_chi": r"$\Delta\chi$",
-    "mean_valence_electrons": "VEC",
-    "mean_melting_point": r"$T_{m}$",
-}
-
-top = grouped.sort_values()
-top.index = [symbols.get(c, c) for c in top.index]
-plt.figure(figsize=(7, 5))
-top.plot.barh()
-plt.xlabel("Feature importance")
-plt.tight_layout()
-plt.savefig("feature_importance.png", dpi=150)

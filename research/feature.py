@@ -84,6 +84,11 @@ Hm = H.values
 CH = C @ Hm
 delta_H = 2 * (CH * C).sum(axis=1)
 delta_H = pd.Series(delta_H, index=data.index, name='delta_H')
-feature = pd.concat([comp_df, mean_props, delta, delta_chi, delta_S, delta_H, n_elements, proc, data[['calculated density']]], axis=1)
+
+# most negative pair enthalpy among the elements present: flags one strongly bonding pair
+# that the concentration-weighted delta_H averages away
+h_min_pair = [Hm[np.ix_(row > 0, row > 0)][np.triu_indices((row > 0).sum(), 1)].min() for row in C]
+h_min_pair = pd.Series(h_min_pair, index=data.index, name='h_min_pair')
+feature = pd.concat([comp_df, mean_props, delta, delta_chi, delta_S, delta_H, h_min_pair, n_elements, proc, data[['calculated density']]], axis=1)
 feature.to_csv('features.csv', index=True)
 data['bcc/fcc/other'].to_csv('target.csv')
