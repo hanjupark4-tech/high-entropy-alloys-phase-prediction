@@ -66,6 +66,14 @@ The figure shows the same values as the table. Rows are the seven descriptors, l
 - **The two enthalpy descriptors overlap.** Delta H mix mattered for Laves in the random forest (0.18 in the previous version of this table) but contributes little in the final model (0.01).
 - Correlated descriptors share importance, so a low value does not prove a feature is unimportant. The values come from one split seed.
 
+**Overall importance.** To see which input dominates across all phases, `research/importance_overall.py` repeats the permutation test on split seeds 0 to 4 for two views of the final model: the phase-combination model (drop in alloy-level top-1 accuracy, base 0.712) and the five phase models (drop in AP, averaged over the phases). Seed 0 reproduces the table above exactly.
+
+![Overall permutation importance of the final model](research/feature_importance_overall.png)
+
+- **VEC is the most important descriptor in both views.** Shuffling it costs 0.18 top-1 accuracy in the combination model, nearly three times the next descriptor (mean melting point, 0.06), and 0.10 mean AP across the phase models, against 0.07 for melting point.
+- **Processing is about as important as VEC.** It is first by mean AP (0.14, against 0.10 for VEC) because it dominates B2, Laves and secondary phases, and second in the combination model (0.15 against 0.18). Process is shuffled across records while the descriptors are shuffled across alloys, so this comparison is approximate.
+- **The other descriptors are close together.** Melting point, mixing entropy, `h_min_pair`, Δχ, mixing enthalpy and size mismatch each cost 0.03 to 0.07, with seed-to-seed spreads of about 0.01, so their order beyond melting point is not reliable. Correlated descriptors share importance here as well.
+
 ### Probability calibration
 
 The per-phase forests output probabilities, so it matters whether those probabilities match observed frequencies. `research/calibration.py` checks this under the same grouped 5-fold CV and 5 seeds, using the physics + processing inputs. It compares a forest trained with `class_weight="balanced"` against an unweighted forest, each raw and with sigmoid or isotonic calibration. The calibrators are fitted on grouped inner-CV predictions inside each training fold, so no alloy is used both to fit a calibrator and to test it. Brier score and expected calibration error (ECE, 10 bins) are computed per record.
@@ -171,6 +179,7 @@ cleaned_data.csv --> train_final.py --> model.joblib --> app.py
 | `research/label.py` | Splits the microstructure string into binary phase labels |
 | `research/modelling.py` | 3-class baseline with grouped cross-validation, and impurity importances of the 3-class random forest |
 | `research/modelling_multilabel.py` | Multi-label evaluation: per-phase AP for the baseline models, the random forest vs extra trees and `h_min_pair` comparison, class weighting and calibration of the final model, permutation importance of the seven descriptors and the processing flags, and `research/feature_importance.png`, and phase-combination accuracy and calibration |
+| `research/importance_overall.py` | Overall permutation importance across all phases (combination model and phase-averaged), split seeds 0 to 4, and `research/feature_importance_overall.png` |
 | `research/leakage.py` | Random vs composition-grouped cross-validation for the per-phase and combination random forests, writes `leakage_results.csv` |
 | `research/calibration.py` | Reliability curves, Brier score and ECE of the per-phase forests (balanced and unweighted, with and without sigmoid and isotonic calibration), and the reliability figure |
 | `featurize.py` | Computes the same descriptors for a single composition typed into the app |
@@ -246,7 +255,7 @@ With the 6 physics descriptors alone the gaps are BCC +0.013, FCC +0.010, B2 +0.
 - 32 formulas carry conflicting labels across records (different processing, or label noise), which caps achievable accuracy.
 - Compositions that differ only slightly (for example Al0.3 and Al0.304) are treated as different alloys and can still fall on opposite sides of a split.
 - 19 element pairs have no tabulated Miedema value and are set to zero when computing mixing enthalpy.
-- Probabilities are not post-hoc calibrated. The calibration study above found that sigmoid and isotonic calibration hurt Laves for the random forest; it has not been repeated for extra trees. The permutation importances above come from a single split seed of the final model.
+- Probabilities are not post-hoc calibrated. The calibration study above found that sigmoid and isotonic calibration hurt Laves for the random forest; it has not been repeated for extra trees. The per-phase permutation importances above come from a single split seed of the final model; the overall importances use five.
 - VEC values are hand-entered and follow one literature convention.
 
 ## Possible extensions
