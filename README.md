@@ -4,7 +4,7 @@ Predicting which phases a high-entropy alloy forms (BCC, FCC, B2, Laves, seconda
 
 Live app: https://high-entropy-alloys-phase-prediction-ntwaaikt4rzo4mdrdari4f.streamlit.app/
 
-The model uses six physics descriptors from Hume-Rothery-style stability rules (atomic size mismatch, mixing enthalpy, mixing entropy, valence electron concentration, mean melting point, electronegativity spread) plus the processing route. It is evaluated with composition-grouped cross-validation, which avoids the data leakage typical of alloy datasets.
+The model is a set of extra trees classifiers on 12 inputs: seven physics descriptors (atomic size mismatch, mixing enthalpy, mixing entropy, valence electron concentration, mean melting point and electronegativity spread from Hume-Rothery-style stability rules, plus the strongest pair mixing enthalpy among the alloy's elements) and five processing-route flags. It is evaluated with composition-grouped cross-validation, which avoids the data leakage typical of alloy datasets.
 
 ## Results
 
@@ -12,19 +12,38 @@ Evaluation: 5-fold `StratifiedGroupKFold`, repeated over 5 random seeds (mean ±
 
 ### Per-phase prediction
 
-One random forest per phase. The metric is average precision (AP). A model with no information scores the phase prevalence, so each AP should be read against that column.
+One classifier per phase. The metric is average precision (AP). A model with no information scores the phase prevalence, so each AP should be read against that column. The baseline models below are balanced random forests on the six original physics descriptors (no `h_min_pair`); the final model is compared in the next section.
 
-| Phase | Prevalence | Logistic regression, all features | RF, all 43 features | RF, 6 physics descriptors | RF, physics + processing |
+| Phase | Prevalence | Logistic regression, all features | RF, all 44 features | RF, 6 physics descriptors | RF, physics + processing |
 |---|---|---|---|---|---|
-| BCC | 0.628 | 0.939 ± 0.005 | 0.985 ± 0.001 | 0.975 ± 0.003 | 0.974 ± 0.005 |
-| FCC | 0.471 | 0.937 ± 0.002 | 0.981 ± 0.003 | 0.969 ± 0.007 | 0.975 ± 0.009 |
-| B2 | 0.148 | 0.583 ± 0.012 | 0.850 ± 0.023 | 0.780 ± 0.017 | 0.830 ± 0.025 |
-| Laves | 0.071 | 0.384 ± 0.031 | 0.594 ± 0.035 | 0.474 ± 0.020 | 0.552 ± 0.036 |
-| Secondary phase | 0.305 | 0.630 ± 0.011 | 0.854 ± 0.014 | 0.825 ± 0.013 | 0.839 ± 0.015 |
+| BCC | 0.628 | 0.937 ± 0.005 | 0.985 ± 0.002 | 0.975 ± 0.003 | 0.974 ± 0.005 |
+| FCC | 0.471 | 0.937 ± 0.002 | 0.980 ± 0.003 | 0.969 ± 0.007 | 0.975 ± 0.009 |
+| B2 | 0.148 | 0.583 ± 0.013 | 0.852 ± 0.021 | 0.780 ± 0.017 | 0.830 ± 0.025 |
+| Laves | 0.071 | 0.383 ± 0.031 | 0.594 ± 0.038 | 0.474 ± 0.020 | 0.552 ± 0.036 |
+| Secondary phase | 0.305 | 0.642 ± 0.010 | 0.859 ± 0.011 | 0.825 ± 0.013 | 0.839 ± 0.015 |
 
-- **Six physics descriptors recover almost all of the BCC and FCC signal.** They come within 0.012 AP of the full 43-feature model.
+- **The six original physics descriptors recover almost all of the BCC and FCC signal.** They come within 0.011 AP of the full 44-feature model.
 - **The gap grows for harder phases.** It is 0.03 to 0.07 for B2 and secondary phases and 0.12 for Laves. Laves formation probably depends on which elements are present, not only on bulk descriptors. Adding the processing route recovers part of the gap (0.47 to 0.55).
 - **Laves is the hardest phase.** It appears in about 7% of alloys and its AP varies the most across seeds.
+
+### Final model: extra trees with the strongest pair enthalpy
+
+Two changes improve the rare phases: extra trees instead of a random forest, and a seventh descriptor, `h_min_pair`, the most negative Miedema pair enthalpy among the elements present (for example Ni-Zr or Al-Zr). The concentration-weighted delta H mix averages a single strongly bonding pair away. The table separates the two effects. All four models are unweighted and use the same folds and seeds as above.
+
+| Phase | RF, physics + processing | RF + h_min_pair | ET, physics + processing | **ET + h_min_pair (final)** |
+|---|---|---|---|---|
+| BCC | 0.976 ± 0.004 | 0.978 ± 0.004 | 0.977 ± 0.003 | **0.979 ± 0.003** |
+| FCC | 0.975 ± 0.007 | 0.976 ± 0.008 | 0.982 ± 0.005 | **0.979 ± 0.008** |
+| B2 | 0.819 ± 0.029 | 0.824 ± 0.027 | 0.856 ± 0.019 | **0.859 ± 0.020** |
+| Laves | 0.568 ± 0.027 | 0.630 ± 0.025 | 0.619 ± 0.031 | **0.657 ± 0.029** |
+| Secondary phase | 0.839 ± 0.011 | 0.848 ± 0.009 | 0.857 ± 0.016 | **0.871 ± 0.011** |
+
+- **For B2 the gain comes from the model.** Extra trees add about 0.035 AP and `h_min_pair` adds nothing.
+- **For Laves both help, and their gains overlap.** Each one alone adds about 0.05 to 0.06, and together they add 0.09. On 10 further split seeds (5 to 14, model seed varied) the Laves gains over the random forest were +0.040 for `h_min_pair` (10 of 10 seeds), +0.065 for extra trees (9 of 10) and +0.076 for both (10 of 10). On top of extra trees, `h_min_pair` added only +0.011 there (6 of 10), which is within seed noise.
+- **For secondary phases the descriptor matters most on top of extra trees** (+0.014 here, +0.020 on seeds 5 to 14, 10 of 10).
+- Extra trees pick split thresholds at random, which gives smoother probability rankings for rare classes. Bootstrapping is not the reason: a random forest without bootstrapping scores the same, and extra trees with bootstrapping keep the gain.
+- **Class weighting does not matter for extra trees.** Balanced and unweighted extra trees have the same AP (Laves 0.658 vs 0.657) and nearly the same calibration. Unweighted is slightly better for secondary phases (row-level Brier 0.084 vs 0.091), so the final phase models are unweighted.
+- **What did not help Laves:** the Omega parameter, gamma and lambda parameters, VEC spread, radius-ratio descriptors, and gradient-boosted trees (scikit-learn, LightGBM, XGBoost), which scored 0.53 to 0.58. Adding the 28 element fractions raises Laves AP to about 0.72 but makes the model less physics-based, so the app does not use them.
 
 Permutation importance of each physics descriptor (random forest, seed 0): the drop in alloy-level AP when the descriptor is shuffled across the alloys of each held-out fold, with one value per composition so repeated alloys are not over-weighted.
 
@@ -59,14 +78,27 @@ The per-phase forests output probabilities, so it matters whether those probabil
 
 Reliability curves pooled over the 5 seeds, per record. Bins with fewer than 10 records are not shown.
 
+### Check on three unseen alloys
+
+Three annealed NbCrTiAlZr alloys that are not in the training data, all reported as BCC + Laves (Nb is the balance). The final model trained on all data predicts:
+
+| Alloy (at.%) | BCC | FCC | B2 | Laves | Sec | Top 3 combinations |
+|---|---|---|---|---|---|---|
+| Nb36Cr16Ti16Al16Zr16 | 0.47 | 0.01 | 0.54 | 0.34 | 0.51 | other combinations 0.39, BCC 0.24, BCC+Laves 0.23 |
+| Nb47Cr16Ti16Al5Zr16 | 0.77 | 0.03 | 0.22 | 0.42 | 0.25 | **BCC+Laves 0.35**, BCC 0.28, other combinations 0.14 |
+| Nb50Cr16Ti16Al2Zr16 | 0.80 | 0.03 | 0.16 | 0.38 | 0.24 | **BCC+Laves 0.36**, BCC 0.31, BCC+Sec 0.10 |
+
+BCC+Laves is the top combination for the two low-Al alloys and third for the 16% Al alloy, where the model leans towards B2 ordering instead. Laves probability is 5 to 6 times its 7% base rate in all three but stays below 0.5. Three alloys are an illustration, not a validation.
+
 ### Phase combinations
 
 Each distinct combination of the five phases is treated as one class (for example `BCC+FCC` or `BCC+Laves`). Combinations with fewer than 15 records are merged into one `rare_combo` class, which leaves 11 classes. The most frequent are BCC (488 records), FCC (273), BCC+Sec (104), FCC+Sec (100) and BCC+FCC (94).
 
-| Inputs | Top-1 accuracy | Top-3 accuracy |
+| Inputs (balanced random forest unless stated) | Top-1 accuracy | Top-3 accuracy |
 |---|---|---|
 | 6 physics descriptors | 0.652 ± 0.009 | 0.904 ± 0.013 |
 | 6 physics descriptors + processing | 0.676 ± 0.013 | 0.910 ± 0.013 |
+| **Extra trees, 7 physics descriptors + processing (final)** | **0.714 ± 0.007** | **0.914 ± 0.006** |
 | Majority-class baseline | 0.259 | |
 
 ### Baseline: BCC / FCC / other
@@ -83,11 +115,11 @@ Adding mixing enthalpy left the random forest unchanged (alloy macro F1 0.748 to
 
 ![Feature importance](research/feature_importance.png)
 
-Impurity-based feature importance of the 3-class random forest, trained on the 11 model inputs. The five processing flags are summed into one bar (Process). VEC contributes the most (about 0.28), followed by mean melting point (about 0.19), size mismatch (about 0.15) and mixing enthalpy (about 0.14). Processing as a whole contributes about 0.06. These values come from one model fitted on all data and are less reliable than the permutation importances above, which are computed on held-out folds.
+Impurity-based feature importance of the 3-class random forest, trained on the six original physics descriptors and the five processing flags. The five processing flags are summed into one bar (Process). VEC contributes the most (about 0.28), followed by mean melting point (about 0.19), size mismatch (about 0.15) and mixing enthalpy (about 0.14). Processing as a whole contributes about 0.06. These values come from one model fitted on all data and are less reliable than the permutation importances above, which are computed on held-out folds.
 
 ## Web app
 
-`app.py` is a Streamlit app. Enter a composition and a processing route to get a probability for each of the five phases, the three most likely phase combinations, and the six computed descriptors. It also warns when the composition is in the training data (probabilities are then optimistic), when elements are rare in the data, and that Laves and B2 predictions are the least reliable.
+`app.py` is a Streamlit app. Enter a composition and a processing route to get a probability for each of the five phases, the three most likely phase combinations, and the seven computed descriptors. It also warns when the composition is in the training data (probabilities are then optimistic), when elements are rare in the data, and that Laves and B2 predictions are the least reliable.
 
 ```bash
 pip install -r requirements.txt
@@ -117,10 +149,10 @@ cleaned_data.csv --> train_final.py --> model.joblib --> app.py
 | File | Purpose |
 |---|---|
 | `research/data.py` | Cleans column names, drops unused columns, removes rows with missing microstructure or processing method |
-| `research/feature.py` | Parses formulas into element fractions and computes composition-based descriptors, including mixing enthalpy |
+| `research/feature.py` | Parses formulas into element fractions and computes composition-based descriptors, including mixing enthalpy and the strongest pair enthalpy |
 | `research/label.py` | Splits the microstructure string into binary phase labels |
-| `research/modelling.py` | 3-class baseline with grouped cross-validation, and the feature importance figure for the 11 model inputs |
-| `research/modelling_multilabel.py` | Multi-label evaluation: per-phase average precision for all four models, permutation importance of the physics descriptors, and the phase-combination comparison (physics only vs physics + processing) |
+| `research/modelling.py` | 3-class baseline with grouped cross-validation, and the feature importance figure for the six original physics descriptors and the processing flags |
+| `research/modelling_multilabel.py` | Multi-label evaluation: per-phase average precision for the baseline models, the random forest vs extra trees and `h_min_pair` comparison, permutation importance of the physics descriptors, and phase-combination accuracy |
 | `research/leakage.py` | Random vs composition-grouped cross-validation for the per-phase and combination random forests, writes `leakage_results.csv` |
 | `research/calibration.py` | Reliability curves, Brier score and ECE of the per-phase forests (balanced and unweighted, with and without sigmoid and isotonic calibration), and the reliability figure |
 | `featurize.py` | Computes the same descriptors for a single composition typed into the app |
@@ -137,7 +169,7 @@ cleaned_data.csv --> train_final.py --> model.joblib --> app.py
 
 Phase labels come from splitting the `microstructure` string on `+`: BCC, FCC, B2, Laves and secondary phase (`Sec.`). HCP, L12 and Other are rare and are not predicted. 31 records carry none of the five labels.
 
-## Features (43)
+## Features (44)
 
 | Group | Count | Description |
 |---|---|---|
@@ -146,11 +178,12 @@ Phase labels come from splitting the `microstructure` string on `+`: BCC, FCC, B
 | Mismatch descriptors | 2 | Atomic size mismatch (delta, %) and electronegativity spread (delta chi) |
 | Mixing entropy | 1 | Ideal mixing entropy, -R sum(c ln c) |
 | Mixing enthalpy | 1 | Miedema model, delta H mix = sum over pairs of 4 H_ij c_i c_j |
+| Strongest pair enthalpy | 1 | `h_min_pair`, the most negative Miedema H_ij among the pairs of elements present |
 | Number of elements | 1 | Count of elements with non-zero fraction |
 | Processing route | 5 | One-hot: cast, wrought, anneal, powder, other |
 | Density | 1 | Calculated density from the source dataset |
 
-The final model and the app use only 11 inputs: delta, delta H mix, delta S mix, VEC, mean melting point, delta chi, and the five processing flags. Microstructure, yield strength and hardness are not used as inputs, since microstructure is a finer description of the target and would leak the answer.
+The final model and the app use 12 inputs: seven physics descriptors (delta, delta H mix, delta S mix, VEC, mean melting point, delta chi, h_min_pair) and five processing flags. Microstructure, yield strength and hardness are not used as inputs, since microstructure is a finer description of the target and would leak the answer.
 
 ## Validation design
 
@@ -165,13 +198,13 @@ The dataset contains many repeated compositions: 831 of 1354 rows repeat a formu
 
 `research/leakage.py` reruns the random forest models with a plain random split and compares them to the grouped split. Both use 5 folds, the same 5 seeds, the same stratification label and the same alloy-level metrics. The only difference is that the random split (`StratifiedKFold`) ignores composition, so on average 72% of test rows have the same composition in the training folds (0% for the grouped split). The gap is random minus grouped, mean ± std over the 5 seeds.
 
-| Phase | Prevalence | RF all 43 features: grouped | random | gap | RF physics + processing: grouped | random | gap |
+| Phase | Prevalence | RF all 44 features: grouped | random | gap | RF physics + processing: grouped | random | gap |
 |---|---|---|---|---|---|---|---|
-| BCC | 0.628 | 0.985 ± 0.001 | 0.991 ± 0.001 | +0.006 ± 0.001 | 0.974 ± 0.005 | 0.988 ± 0.003 | +0.014 ± 0.007 |
-| FCC | 0.471 | 0.981 ± 0.003 | 0.989 ± 0.005 | +0.008 ± 0.006 | 0.975 ± 0.009 | 0.981 ± 0.009 | +0.006 ± 0.014 |
-| B2 | 0.148 | 0.850 ± 0.023 | 0.902 ± 0.012 | +0.053 ± 0.022 | 0.830 ± 0.025 | 0.893 ± 0.022 | +0.063 ± 0.017 |
-| Laves | 0.071 | 0.594 ± 0.035 | 0.892 ± 0.020 | **+0.299 ± 0.033** | 0.552 ± 0.036 | 0.859 ± 0.021 | **+0.307 ± 0.044** |
-| Secondary phase | 0.305 | 0.854 ± 0.014 | 0.906 ± 0.006 | +0.051 ± 0.012 | 0.839 ± 0.015 | 0.898 ± 0.009 | +0.059 ± 0.016 |
+| BCC | 0.628 | 0.985 ± 0.002 | 0.992 ± 0.000 | +0.007 ± 0.002 | 0.974 ± 0.005 | 0.988 ± 0.003 | +0.014 ± 0.007 |
+| FCC | 0.471 | 0.980 ± 0.003 | 0.988 ± 0.007 | +0.007 ± 0.009 | 0.975 ± 0.009 | 0.981 ± 0.009 | +0.006 ± 0.014 |
+| B2 | 0.148 | 0.852 ± 0.021 | 0.897 ± 0.015 | +0.045 ± 0.012 | 0.830 ± 0.025 | 0.893 ± 0.022 | +0.063 ± 0.017 |
+| Laves | 0.071 | 0.594 ± 0.038 | 0.888 ± 0.020 | **+0.294 ± 0.051** | 0.552 ± 0.036 | 0.859 ± 0.021 | **+0.307 ± 0.044** |
+| Secondary phase | 0.305 | 0.859 ± 0.011 | 0.908 ± 0.009 | +0.049 ± 0.013 | 0.839 ± 0.015 | 0.898 ± 0.009 | +0.059 ± 0.016 |
 
 With the 6 physics descriptors alone the gaps are BCC +0.013, FCC +0.010, B2 +0.097, Laves +0.389 and secondary phase +0.070 (Laves AP 0.474 grouped vs 0.863 random).
 
@@ -182,10 +215,10 @@ With the 6 physics descriptors alone the gaps are BCC +0.013, FCC +0.010, B2 +0.
 | Physics + processing, top-1 | 0.676 ± 0.013 | 0.764 ± 0.004 | +0.088 ± 0.010 |
 | Physics + processing, top-3 | 0.910 ± 0.013 | 0.944 ± 0.012 | +0.034 ± 0.009 |
 
-- **Leakage is small for BCC and FCC and large for the rare phases.** BCC and FCC gain under 0.015 AP, close to seed noise, because VEC separates them well for unseen alloys too. B2 and secondary phases gain 0.05 to 0.10.
+- **Leakage is small for BCC and FCC and large for the rare phases.** BCC and FCC gain under 0.015 AP, close to seed noise, because VEC separates them well for unseen alloys too. B2 and secondary phases gain 0.045 to 0.10.
 - **A random split makes Laves look solved.** Laves AP rises from about 0.5 to about 0.86 to 0.89, so most of the apparent Laves skill under a random split is memorising repeated alloys.
 - **Combination accuracy is inflated by about 9 points at top-1** (0.68 to 0.76 with processing).
-- **Removing element fractions does not remove the leakage.** With the 6 physics descriptors only, the random split lifts Laves by 0.39 and B2 by 0.10, more than with all 43 features, because six continuous descriptors are still enough to recognise a repeated composition.
+- **Removing element fractions does not remove the leakage.** With the 6 physics descriptors only, the random split lifts Laves by 0.39 and B2 by 0.10, more than with all 44 features, because six continuous descriptors are still enough to recognise a repeated composition.
 
 ## Limitations
 
@@ -194,13 +227,13 @@ With the 6 physics descriptors alone the gaps are BCC +0.013, FCC +0.010, B2 +0.
 - 32 formulas carry conflicting labels across records (different processing, or label noise), which caps achievable accuracy.
 - Compositions that differ only slightly (for example Al0.3 and Al0.304) are treated as different alloys and can still fall on opposite sides of a split.
 - 19 element pairs have no tabulated Miedema value and are set to zero when computing mixing enthalpy.
-- Random forest probabilities are not calibrated, and the permutation importances above come from a single seed.
+- Probabilities are not post-hoc calibrated, and the permutation importances above come from a single seed of the random forest.
 - VEC values are hand-entered and follow one literature convention.
 
 ## Possible extensions
 
 - Test whether dropping size mismatch alone changes Laves performance
-- Add the Omega parameter and calibrate the probabilities
+- Calibrate the probabilities (the Omega parameter was tried for Laves and did not help)
 - Use the same features for hardness and yield strength regression
 
 ## Reproduce

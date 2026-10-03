@@ -139,6 +139,7 @@ with left:
             ("Valence electron conc., VEC", f"{d['mean_valence_electrons']:.2f}"),
             ("Mean melting point, T<sub>m</sub>", f"{d['mean_melting_point']:,.0f} K"),
             ("Electronegativity diff., &Delta;&chi;", f"{d['delta_chi']:.3f}"),
+            ("Strongest pair enthalpy, &Delta;H<sub>pair,min</sub>", minus(d["h_min_pair"], ".0f") + " kJ/mol"),
         ]
         st.markdown(
             '<div class="card"><div class="card-h"><b>Computed descriptors</b></div>'
@@ -213,7 +214,7 @@ st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 with st.container(border=True):
     st.markdown(
         f"""<div class="facts">
-<div><div class="k">Model</div><div class="v">Random forest per phase and for phase combinations, six physics descriptors plus processing route</div></div>
+<div><div class="k">Model</div><div class="v">Extra trees per phase and for phase combinations, seven physics descriptors plus five processing flags (12 inputs)</div></div>
 <div><div class="k">Validation</div><div class="v">{cv["folds"]}</div></div>
 <div><div class="k">Combination accuracy</div><div class="v">Top-1 {cv["top1"]:.2f}, top-3 {cv["top3"]:.2f} (majority baseline {cv["baseline"]:.2f})</div></div>
 <div><div class="k">Data</div><div class="v">{meta["n_rows"]} records, {meta["n_alloys"]} unique compositions</div></div>

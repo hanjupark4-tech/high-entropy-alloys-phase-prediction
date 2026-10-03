@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.dummy import DummyClassifier
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import ExtraTreesClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -45,6 +45,9 @@ models = {
     "dummy": DummyClassifier(strategy="prior"),
     "logreg": make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000)),
     "rf_balanced": RandomForestClassifier(random_state=42, class_weight="balanced"),
+    "rf": RandomForestClassifier(random_state=42),
+    "et": ExtraTreesClassifier(random_state=42),
+    "et_balanced": ExtraTreesClassifier(random_state=42, class_weight="balanced"),
 }
 
 seeds = [0, 1, 2, 3, 4]
@@ -52,6 +55,7 @@ folds = {s: make_fold(s) for s in seeds}
 
 physics = ["delta", "delta_H", "delta_S", "mean_valence_electrons", "mean_melting_point", "delta_chi"]
 proc = [c for c in feature.columns if c.startswith("proc_")]
+model_cols = physics + ["h_min_pair"] + proc
 
 def evaluate_phase(model, phase, fold, cols=None):
     X = feature if cols is None else feature[cols]
@@ -80,6 +84,20 @@ for fs, (name, cols) in feature_sets.items():
 ap = pd.DataFrame(rows)
 print(ap.groupby(["phase", "fs"])["ap"].agg(["mean", "std"]).unstack().round(3).loc[phases])
 print(ap.groupby("phase")["prevalence"].mean().round(3).loc[phases])
+
+# model vs descriptor: unweighted RF and extra trees, with and without h_min_pair
+attribution = {
+    "rf_physics_proc": ("rf", physics + proc),
+    "rf_physics_hmin_proc": ("rf", model_cols),
+    "et_physics_proc": ("et", physics + proc),
+    "et_physics_hmin_proc": ("et", model_cols),
+}
+rows = []
+for fs, (name, cols) in attribution.items():
+    for phase in phases:
+        for s in seeds:
+            rows.append({"fs": fs, "phase": phase, "seed": s, "ap": evaluate_phase(models[name], phase, folds[s], cols)[0]})
+print(pd.DataFrame(rows).groupby(["phase", "fs"])["ap"].agg(["mean", "std"]).unstack().round(3).loc[phases])
 
 def permutation_importance_phase(model, phase, fold, cols, seed=0):
     # drop in alloy-level AP when one descriptor is shuffled across the alloys of each test fold;
@@ -126,10 +144,15 @@ def evaluate_combo(model, fold, cols, min_count=15):
     baseline = true.value_counts(normalize=True).max()
     return top1, top3, baseline
 
+combo_runs = {
+    "rf_physics": ("rf_balanced", physics),
+    "rf_physics_proc": ("rf_balanced", physics + proc),
+    "et_physics_hmin_proc": ("et_balanced", model_cols),
+}
 rows = []
-for name, cols in {"physics": physics, "physics_proc": physics + proc}.items():
+for fs, (name, cols) in combo_runs.items():
     for s in seeds:
-        t1, t3, b = evaluate_combo(models["rf_balanced"], folds[s], cols)
-        rows.append({"fs": name, "seed": s, "top1": t1, "top3": t3, "baseline": b})
+        t1, t3, b = evaluate_combo(models[name], folds[s], cols)
+        rows.append({"fs": fs, "seed": s, "top1": t1, "top3": t3, "baseline": b})
 
 print(pd.DataFrame(rows).groupby("fs")[["top1", "top3", "baseline"]].agg(["mean", "std"]).round(3))

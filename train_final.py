@@ -1,7 +1,7 @@
 import joblib
 import pandas as pd
 import sklearn
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import ExtraTreesClassifier
 
 from featurize import MODEL_COLUMNS, SYMBOLS, composition_key, featurize_table
 
@@ -23,8 +23,8 @@ first = ~keys.duplicated()
 
 phase_models = {}
 for p in PHASES:
-    phase_models[p] = RandomForestClassifier(random_state=42, class_weight="balanced").fit(Xm, Y[p])
-combo_model = RandomForestClassifier(random_state=42, class_weight="balanced").fit(Xm, combo_label)
+    phase_models[p] = ExtraTreesClassifier(random_state=42).fit(Xm, Y[p])
+combo_model = ExtraTreesClassifier(random_state=42, class_weight="balanced").fit(Xm, combo_label)
 
 meta = {
     "n_rows": int(len(data)),
@@ -38,10 +38,10 @@ meta = {
     "known_keys": sorted(set(keys)),
     "cv": {
         "folds": "5-fold grouped by composition, 5 seeds",
-        "ap": {"BCC": 0.975, "FCC": 0.980, "B2": 0.806, "Laves": 0.514, "Sec": 0.834},
+        "ap": {"BCC": 0.979, "FCC": 0.979, "B2": 0.859, "Laves": 0.657, "Sec": 0.871},
         "prevalence": {"BCC": 0.628, "FCC": 0.471, "B2": 0.148, "Laves": 0.071, "Sec": 0.305},
-        "top1": 0.695,
-        "top3": 0.922,
+        "top1": 0.714,
+        "top3": 0.914,
         "baseline": 0.259,
     },
     "sklearn_version": sklearn.__version__,
