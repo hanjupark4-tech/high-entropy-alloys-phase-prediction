@@ -92,12 +92,29 @@ cols = ["row_acc", "row_f1", "alloy_acc", "alloy_f1", "rec_BCC", "rec_FCC", "rec
 print(res.groupby("model")[cols].agg(["mean", "std"]).round(3).to_string())
 print(pd.DataFrame(final_cm, index=labels, columns=labels))
 
-final_model = clone(models["rf_balanced"]).fit(feature, target)
-importance = pd.Series(final_model.feature_importances_, index=feature.columns)
-importance = importance.sort_values(ascending=False)
-print(importance.head(15))
+physics = ["delta", "delta_H", "delta_S", "mean_valence_electrons", "mean_melting_point", "delta_chi"]
+proc = [c for c in feature.columns if c.startswith("proc_")]
+model_cols = physics + proc
 
-top = importance.head(15).sort_values()
+final_model = clone(models["rf_balanced"]).fit(feature[model_cols], target)
+importance = pd.Series(final_model.feature_importances_, index=model_cols)
+
+grouped = importance[physics].copy()
+grouped["Process"] = importance[proc].sum()
+grouped = grouped.sort_values(ascending=False)
+print(grouped)
+
+symbols = {
+    "delta": r"$\delta$",
+    "delta_H": r"$\Delta H_{\mathrm{mix}}$",
+    "delta_S": r"$\Delta S_{\mathrm{mix}}$",
+    "delta_chi": r"$\Delta\chi$",
+    "mean_valence_electrons": "VEC",
+    "mean_melting_point": r"$T_{m}$",
+}
+
+top = grouped.sort_values()
+top.index = [symbols.get(c, c) for c in top.index]
 plt.figure(figsize=(7, 5))
 top.plot.barh()
 plt.xlabel("Feature importance")

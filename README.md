@@ -63,6 +63,8 @@ Adding mixing enthalpy left the random forest unchanged (alloy macro F1 0.754 to
 
 ![Feature importance](research/feature_importance.png)
 
+Impurity-based feature importance of the 3-class random forest, trained on the 11 model inputs. The five processing flags are summed into one bar (Process). VEC contributes the most (about 0.28), followed by mean melting point (about 0.19), size mismatch (about 0.16) and mixing enthalpy (about 0.15). Processing as a whole contributes about 0.06. These values come from one model fitted on all data and are less reliable than the permutation importances above, which are computed on held-out folds.
+
 ## Web app
 
 `app.py` is a Streamlit app. Enter a composition and a processing route to get a probability for each of the five phases, the three most likely phase combinations, and the six computed descriptors. It also warns when the composition is in the training data (probabilities are then optimistic), when elements are rare in the data, and that Laves and B2 predictions are the least reliable.
@@ -97,8 +99,8 @@ cleaned_data.csv --> train_final.py --> model.joblib --> app.py
 | `research/data.py` | Cleans column names, drops unused columns, removes rows with missing microstructure or processing method |
 | `research/feature.py` | Parses formulas into element fractions and computes composition-based descriptors, including mixing enthalpy |
 | `research/label.py` | Splits the microstructure string into binary phase labels |
-| `research/modelling.py` | 3-class baseline with grouped cross-validation and feature importance |
-| `research/modelling_multilabel.py` | Multi-label experiments: per-phase average precision, feature-set comparison, phase combinations |
+| `research/modelling.py` | 3-class baseline with grouped cross-validation, and the feature importance figure for the 11 model inputs |
+| `research/modelling_multilabel.py` | Multi-label evaluation: defines the per-phase average precision evaluation and runs the phase-combination comparison (physics only vs physics + processing) |
 | `featurize.py` | Computes the same descriptors for a single composition typed into the app |
 | `train_final.py` | Trains the five phase models and the combination model on all data and writes `model.joblib` |
 | `app.py` | Streamlit app |
