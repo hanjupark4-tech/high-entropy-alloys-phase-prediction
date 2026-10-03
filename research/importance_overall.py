@@ -120,35 +120,21 @@ summary = pd.DataFrame({
 }).sort_values("combo_top1_drop", ascending=False)
 print(summary.round(3))
 
-names = {
-    "delta": r"$\delta$ (size mismatch)",
+symbols = {
+    "delta": r"$\delta$",
     "delta_H": r"$\Delta H_{\mathrm{mix}}$",
     "delta_S": r"$\Delta S_{\mathrm{mix}}$",
-    "mean_valence_electrons": "VEC",
-    "mean_melting_point": r"$T_m$",
     "delta_chi": r"$\Delta\chi$",
+    "mean_valence_electrons": "VEC",
+    "mean_melting_point": r"$T_{m}$",
     "h_min_pair": r"$\Delta H_{\mathrm{pair,min}}$",
-    "Process": "Process (5 flags)",
+    "Process": "Process",
 }
-order = summary.index[::-1]
-fig, axes = plt.subplots(1, 2, figsize=(9, 4.4), sharey=True)
-panels = [
-    ("combo_top1_drop", "combo_sd", "Phase-combination model\ndrop in top-1 accuracy"),
-    ("phase_mean_ap_drop", "phase_sd", "Five phase models\nmean drop in AP"),
-]
-for ax, (col, sd, title) in zip(axes, panels):
-    colors = ["#8a94a6" if n == "Process" else "#3987e5" for n in order]
-    ax.barh(range(len(order)), summary.loc[order, col], xerr=summary.loc[order, sd], color=colors,
-            height=0.65, error_kw={"ecolor": "#1f2937", "elinewidth": 0.8, "capsize": 2})
-    for i, v in enumerate(summary.loc[order, col]):
-        ax.text(max(v, 0) + summary.loc[order, sd].iloc[i] + 0.004, i, f"{v:.3f}", va="center", fontsize=8, color="#1f2937")
-    ax.set_title(title, fontsize=10)
-    ax.axvline(0, color="#1f2937", linewidth=0.8)
-    ax.set_xlim(min(0, summary[col].min() - 0.01), (summary[col] + summary[sd]).max() * 1.25)
-    ax.tick_params(axis="y", length=0)
-    for sp in ["top", "right", "left"]:
-        ax.spines[sp].set_visible(False)
-axes[0].set_yticks(range(len(order)), [names[n] for n in order])
-fig.suptitle("Overall permutation importance, final extra trees model (held-out, split seeds 0-4, mean ± sd)", fontsize=10)
-fig.tight_layout()
-fig.savefig("research/feature_importance_overall.png", dpi=150)
+
+top = summary["combo_top1_drop"].sort_values()
+top.index = [symbols.get(c, c) for c in top.index]
+plt.figure(figsize=(7, 5))
+top.plot.barh()
+plt.xlabel("Feature importance (drop in top-1 accuracy)")
+plt.tight_layout()
+plt.savefig("research/feature_importance_overall.png", dpi=150)

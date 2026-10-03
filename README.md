@@ -66,7 +66,7 @@ The figure shows the same values as the table. Rows are the seven descriptors, l
 - **The two enthalpy descriptors overlap.** Delta H mix mattered for Laves in the random forest (0.18 in the previous version of this table) but contributes little in the final model (0.01).
 - Correlated descriptors share importance, so a low value does not prove a feature is unimportant. The values come from one split seed.
 
-**Overall importance.** To see which input dominates across all phases, `research/importance_overall.py` repeats the permutation test on split seeds 0 to 4 for two views of the final model: the phase-combination model (drop in alloy-level top-1 accuracy, base 0.712) and the five phase models (drop in AP, averaged over the phases). Seed 0 reproduces the table above exactly.
+**Overall importance.** To see which input dominates across all phases, `research/importance_overall.py` repeats the permutation test on split seeds 0 to 4. The figure shows the phase-combination model, which predicts the whole phase set at once: the drop in alloy-level top-1 accuracy (base 0.712), averaged over the five seeds. The script also prints the drop in AP averaged over the five phase models, and its seed 0 values reproduce the table above exactly.
 
 ![Overall permutation importance of the final model](research/feature_importance_overall.png)
 
@@ -179,7 +179,7 @@ cleaned_data.csv --> train_final.py --> model.joblib --> app.py
 | `research/label.py` | Splits the microstructure string into binary phase labels |
 | `research/modelling.py` | 3-class baseline with grouped cross-validation, and impurity importances of the 3-class random forest |
 | `research/modelling_multilabel.py` | Multi-label evaluation: per-phase AP for the baseline models, the random forest vs extra trees and `h_min_pair` comparison, class weighting and calibration of the final model, permutation importance of the seven descriptors and the processing flags, and `research/feature_importance.png`, and phase-combination accuracy and calibration |
-| `research/importance_overall.py` | Overall permutation importance across all phases (combination model and phase-averaged), split seeds 0 to 4, and `research/feature_importance_overall.png` |
+| `research/importance_overall.py` | Overall permutation importance across all phases (combination model and phase-averaged), split seeds 0 to 4, and the bar chart `research/feature_importance_overall.png` |
 | `research/leakage.py` | Random vs composition-grouped cross-validation for the per-phase and combination random forests, writes `leakage_results.csv` |
 | `research/calibration.py` | Reliability curves, Brier score and ECE of the per-phase forests (balanced and unweighted, with and without sigmoid and isotonic calibration), and the reliability figure |
 | `featurize.py` | Computes the same descriptors for a single composition typed into the app |
