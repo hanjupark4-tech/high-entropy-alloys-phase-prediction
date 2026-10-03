@@ -43,7 +43,7 @@ The final model replaces the random forest with extra trees, which is the main d
 - **Class weighting does not matter for extra trees.** Balanced and unweighted extra trees have the same AP (Laves 0.658 vs 0.657) and nearly the same calibration. Unweighted is slightly better for secondary phases (row-level Brier 0.084 vs 0.091), so the final phase models are unweighted.
 - **What did not help Laves:** the Omega parameter, gamma and lambda parameters, VEC spread, radius-ratio descriptors, and gradient-boosted trees (scikit-learn, LightGBM, XGBoost), which scored 0.53 to 0.58. Adding the 28 element fractions raises Laves AP to about 0.72 but makes the model less physics-based, so the app does not use them.
 
-Permutation importance of each descriptor in the final model (unweighted extra trees, 12 inputs, split seed 0): the drop in alloy-level AP when the descriptor is shuffled across the alloys of each held-out fold, with one value per composition so repeated alloys are not over-weighted.
+Permutation importance in the final model (unweighted extra trees, 12 inputs, split seed 0): the drop in alloy-level AP when an input is shuffled within each held-out fold. Each descriptor is shuffled across alloys, with one value per composition so repeated alloys are not over-weighted. The five processing flags are shuffled together as one input (Process), across records, because the processing route can differ between records of the same alloy.
 
 | Descriptor | BCC | FCC | B2 | Laves | Secondary |
 |---|---|---|---|---|---|
@@ -54,10 +54,17 @@ Permutation importance of each descriptor in the final model (unweighted extra t
 | mean melting point | 0.042 | 0.018 | 0.100 | 0.086 | 0.078 |
 | delta chi | 0.009 | 0.006 | 0.040 | 0.062 | 0.066 |
 | h_min_pair | 0.006 | 0.004 | 0.045 | 0.067 | 0.131 |
+| Process (5 flags) | 0.017 | 0.024 | 0.272 | 0.336 | 0.167 |
 
 ![Permutation importance of the final model](research/feature_importance.png)
 
-VEC drives FCC and is the strongest single descriptor for Laves, matching the classical VEC rule. B2 depends on mixing enthalpy, mixing entropy and size mismatch, with every descriptor contributing. `h_min_pair` is the most important descriptor for secondary phases and the third most important for Laves, after VEC and melting point. Delta H mix, which mattered for Laves in the random forest (0.18 in the previous version of this table), now contributes little (0.01), so the two enthalpy descriptors appear to carry overlapping information. Correlated descriptors share importance, so a low value does not prove a feature is unimportant.
+The figure shows the same values as the table. Rows are the seven descriptors, labelled with their symbols (δ size mismatch, ΔH<sub>mix</sub>, ΔS<sub>mix</sub>, VEC, T<sub>m</sub> mean melting point, Δχ, and ΔH<sub>pair,min</sub> for `h_min_pair`), plus one summed Process row for the five processing flags. Columns are the five phases, and darker cells mean a larger drop in AP. These are held-out permutation importances of the final model, not the impurity importances of the earlier 3-class random forest.
+
+- **BCC and FCC barely depend on any single input except VEC.** VEC is the main input for FCC (0.19). BCC has no input above 0.06, probably because correlated descriptors can stand in for each other.
+- **Processing matters most for the rare phases.** Shuffling the processing route costs 0.34 AP for Laves, 0.27 for B2 and 0.17 for secondary phases, more than any single descriptor. This matches the earlier gain from adding processing to the random forest (Laves 0.47 to 0.55). Process is shuffled across records rather than alloys, so its value is not strictly comparable with the descriptor rows.
+- **Among the descriptors, B2 depends on mixing enthalpy, mixing entropy, size mismatch and melting point.** Laves depends on VEC, then melting point, then `h_min_pair`. Secondary phases depend most on `h_min_pair` (0.13).
+- **The two enthalpy descriptors overlap.** Delta H mix mattered for Laves in the random forest (0.18 in the previous version of this table) but contributes little in the final model (0.01).
+- Correlated descriptors share importance, so a low value does not prove a feature is unimportant. The values come from one split seed.
 
 ### Probability calibration
 
@@ -163,7 +170,7 @@ cleaned_data.csv --> train_final.py --> model.joblib --> app.py
 | `research/feature.py` | Parses formulas into element fractions and computes composition-based descriptors, including mixing enthalpy and the strongest pair enthalpy |
 | `research/label.py` | Splits the microstructure string into binary phase labels |
 | `research/modelling.py` | 3-class baseline with grouped cross-validation, and impurity importances of the 3-class random forest |
-| `research/modelling_multilabel.py` | Multi-label evaluation: per-phase AP for the baseline models, the random forest vs extra trees and `h_min_pair` comparison, class weighting and calibration of the final model, permutation importance of the seven descriptors and `research/feature_importance.png`, and phase-combination accuracy and calibration |
+| `research/modelling_multilabel.py` | Multi-label evaluation: per-phase AP for the baseline models, the random forest vs extra trees and `h_min_pair` comparison, class weighting and calibration of the final model, permutation importance of the seven descriptors and the processing flags, and `research/feature_importance.png`, and phase-combination accuracy and calibration |
 | `research/leakage.py` | Random vs composition-grouped cross-validation for the per-phase and combination random forests, writes `leakage_results.csv` |
 | `research/calibration.py` | Reliability curves, Brier score and ECE of the per-phase forests (balanced and unweighted, with and without sigmoid and isotonic calibration), and the reliability figure |
 | `featurize.py` | Computes the same descriptors for a single composition typed into the app |

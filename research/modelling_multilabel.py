@@ -124,15 +124,19 @@ for name in ["et_balanced", "et"]:
                          "brier": np.mean((oof.values - y) ** 2), "ece": ece(y, oof.values), "mean_p": oof.mean()})
 print(pd.DataFrame(rows).groupby(["model", "phase"])[["ap", "brier", "ece", "mean_p"]].mean().round(3))
 
-def permutation_importance_phase(model, phase, fold, cols, permute=None, seed=0):
+def permutation_importance_phase(model, phase, fold, cols, permute=None, blocks=None, seed=0):
     # drop in alloy-level AP when one descriptor is shuffled across the alloys of each test fold;
     # one value per composition, applied to all its rows, so repeated alloys are not over-weighted
-    # (descriptors are identical within a composition up to rounding of the formula)
+    # (descriptors are identical within a composition up to rounding of the formula).
+    # blocks: groups of columns that vary within a composition (the processing flags); each block
+    # is shuffled jointly across the records of the test fold, with its own random stream
     rng = np.random.default_rng(seed)
+    rng_blocks = np.random.default_rng(seed + 1)
+    blocks = blocks or {}
     X = feature[cols]
     base = pd.Series(0.0, index=feature.index)
     permute = cols if permute is None else permute
-    perm = {c: pd.Series(0.0, index=feature.index) for c in permute}
+    perm = {c: pd.Series(0.0, index=feature.index) for c in list(permute) + list(blocks)}
     for k in range(5):
         train, test = fold != k, fold == k
         m = clone(model).fit(X[train], Y.loc[train, phase])
@@ -143,13 +147,19 @@ def permutation_importance_phase(model, phase, fold, cols, permute=None, seed=0)
             shuffled = pd.Series(rng.permutation(per_alloy.values), index=per_alloy.index)
             Xp[c] = group[test].map(shuffled).values
             perm[c][test] = m.predict_proba(Xp)[:, 1]
+        for name, bcols in blocks.items():
+            Xp = X[test].copy()
+            Xp[bcols] = Xp[bcols].values[rng_blocks.permutation(len(Xp))]
+            perm[name][test] = m.predict_proba(Xp)[:, 1]
     true = (Y[phase].groupby(group).mean() >= 0.5).astype(int)
     ap0 = average_precision_score(true, base.groupby(group).mean().loc[true.index])
-    return {c: ap0 - average_precision_score(true, perm[c].groupby(group).mean().loc[true.index]) for c in permute}
+    return {c: ap0 - average_precision_score(true, perm[c].groupby(group).mean().loc[true.index]) for c in perm}
 
-# final model: unweighted extra trees on the 12 inputs; only the seven descriptors are permuted
+# final model: unweighted extra trees on the 12 inputs; the seven descriptors one at a time,
+# the five processing flags together as one "Process" input
 descriptors = physics + ["h_min_pair"]
-imp = pd.DataFrame({p: permutation_importance_phase(models["et"], p, folds[0], model_cols, descriptors) for p in phases})
+imp = pd.DataFrame({p: permutation_importance_phase(models["et"], p, folds[0], model_cols, descriptors, {"Process": proc})
+                    for p in phases})
 print(imp.round(3))
 
 names = {
@@ -160,9 +170,10 @@ names = {
     "mean_melting_point": r"$T_m$",
     "delta_chi": r"$\Delta\chi$",
     "h_min_pair": r"$\Delta H_{\mathrm{pair,min}}$",
+    "Process": "Process (5 flags)",
 }
 blues = LinearSegmentedColormap.from_list("blues", ["#ffffff", "#cde2fb", "#86b6ef", "#3987e5", "#1c5cab", "#0d366b"])
-fig, ax = plt.subplots(figsize=(7, 4.6))
+fig, ax = plt.subplots(figsize=(7, 5.1))
 ax.imshow(imp.clip(lower=0).values, cmap=blues, vmin=0, vmax=imp.values.max(), aspect="auto")
 for i in range(imp.shape[0]):
     for j in range(imp.shape[1]):
@@ -170,7 +181,7 @@ for i in range(imp.shape[0]):
         ax.text(j, i, f"{0.0 if abs(v) < 0.005 else v:.2f}", ha="center", va="center", fontsize=9,
                 color="white" if v > 0.6 * imp.values.max() else "#1f2937")
 ax.set_xticks(range(len(phases)), ["BCC", "FCC", "B2", "Laves", "Secondary"])
-ax.set_yticks(range(len(descriptors)), [names[d] for d in descriptors])
+ax.set_yticks(range(len(imp.index)), [names[d] for d in imp.index])
 ax.tick_params(length=0)
 for sp in ax.spines.values():
     sp.set_visible(False)
