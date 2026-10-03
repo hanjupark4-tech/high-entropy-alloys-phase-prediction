@@ -28,7 +28,7 @@ One classifier per phase. The metric is average precision (AP). A model with no 
 
 ### Final model: extra trees with the strongest pair enthalpy
 
-The final model replaces the random forest with extra trees, which is the main source of the gain on the rare phases. It also adds a seventh descriptor, `h_min_pair`: the most negative Miedema pair enthalpy among the elements present (for example Ni-Zr or Al-Zr). This is a smaller, physically motivated addition. The concentration-weighted delta H mix averages one strongly bonding pair away, while intermetallic formation can hinge on it. The table separates the two effects. All four models are unweighted and use the same folds and seeds as above.
+The final model replaces the random forest with extra trees, which is the main driver of the gain on the rare phases. It also adds a seventh descriptor, `h_min_pair`: the most negative Miedema pair enthalpy among the elements present (for example Ni-Zr or Al-Zr). This is a small, physically motivated addition. The concentration-weighted delta H mix averages one strongly bonding pair away, while intermetallic formation can hinge on it. The table separates the two effects. All four models are unweighted and use the same folds and seeds as above.
 
 | Phase | RF, 11 inputs | RF + h_min_pair, 12 inputs | ET, 11 inputs | **ET + h_min_pair, 12 inputs (final)** |
 |---|---|---|---|---|
@@ -43,18 +43,21 @@ The final model replaces the random forest with extra trees, which is the main s
 - **Class weighting does not matter for extra trees.** Balanced and unweighted extra trees have the same AP (Laves 0.658 vs 0.657) and nearly the same calibration. Unweighted is slightly better for secondary phases (row-level Brier 0.084 vs 0.091), so the final phase models are unweighted.
 - **What did not help Laves:** the Omega parameter, gamma and lambda parameters, VEC spread, radius-ratio descriptors, and gradient-boosted trees (scikit-learn, LightGBM, XGBoost), which scored 0.53 to 0.58. Adding the 28 element fractions raises Laves AP to about 0.72 but makes the model less physics-based, so the app does not use them.
 
-Permutation importance of each physics descriptor (random forest, seed 0): the drop in alloy-level AP when the descriptor is shuffled across the alloys of each held-out fold, with one value per composition so repeated alloys are not over-weighted.
+Permutation importance of each descriptor in the final model (unweighted extra trees, 12 inputs, split seed 0): the drop in alloy-level AP when the descriptor is shuffled across the alloys of each held-out fold, with one value per composition so repeated alloys are not over-weighted.
 
 | Descriptor | BCC | FCC | B2 | Laves | Secondary |
 |---|---|---|---|---|---|
-| delta (size mismatch) | 0.008 | 0.009 | 0.171 | 0.119 | 0.118 |
-| delta H mix | 0.003 | 0.004 | 0.189 | 0.182 | 0.100 |
-| delta S mix | 0.009 | 0.016 | 0.138 | -0.009 | 0.127 |
-| VEC | 0.139 | 0.293 | 0.164 | 0.202 | 0.104 |
-| mean melting point | 0.032 | 0.032 | 0.148 | 0.275 | 0.155 |
-| delta chi | 0.013 | 0.017 | 0.078 | 0.036 | 0.113 |
+| delta (size mismatch) | 0.016 | 0.013 | 0.109 | 0.002 | 0.021 |
+| delta H mix | 0.003 | 0.006 | 0.156 | 0.010 | 0.046 |
+| delta S mix | 0.004 | 0.010 | 0.128 | -0.002 | 0.068 |
+| VEC | 0.058 | 0.191 | 0.093 | 0.159 | 0.087 |
+| mean melting point | 0.042 | 0.018 | 0.100 | 0.086 | 0.078 |
+| delta chi | 0.009 | 0.006 | 0.040 | 0.062 | 0.066 |
+| h_min_pair | 0.006 | 0.004 | 0.045 | 0.067 | 0.131 |
 
-VEC alone drives BCC and FCC, matching the classical VEC rule. Laves depends most on melting point, VEC and mixing enthalpy. B2 depends most on mixing enthalpy and size mismatch, but every descriptor contributes. Correlated descriptors share importance, so a low value does not prove a feature is unimportant.
+![Permutation importance of the final model](research/feature_importance.png)
+
+VEC drives FCC and is the strongest single descriptor for Laves, matching the classical VEC rule. B2 depends on mixing enthalpy, mixing entropy and size mismatch, with every descriptor contributing. `h_min_pair` is the most important descriptor for secondary phases and the third most important for Laves, after VEC and melting point. Delta H mix, which mattered for Laves in the random forest (0.18 in the previous version of this table), now contributes little (0.01), so the two enthalpy descriptors appear to carry overlapping information. Correlated descriptors share importance, so a low value does not prove a feature is unimportant.
 
 ### Probability calibration
 
@@ -76,6 +79,8 @@ The per-phase forests output probabilities, so it matters whether those probabil
 
 Reliability curves pooled over the 5 seeds, per record. Bins with fewer than 10 records are not shown.
 
+This study covers the random forests. The final model uses unweighted extra trees: for extra trees, class weighting leaves AP unchanged and the unweighted versions are slightly better calibrated (see the final model section above and the phase combination section below).
+
 ### Check on three unseen alloys
 
 Three annealed NbCrTiAlZr alloys that are not in the training data, all reported as BCC + Laves (Nb is the balance). Each model is trained on all data.
@@ -92,21 +97,24 @@ Three annealed NbCrTiAlZr alloys that are not in the training data, all reported
 | | ET, 11 inputs | 0.90 | 0.02 | 0.02 | 0.17 | 0.13 | BCC 0.51, BCC+Laves 0.25, BCC+Sec 0.18 |
 | | ET + h_min_pair (final) | 0.80 | 0.03 | 0.16 | 0.38 | 0.24 | BCC 0.34, BCC+Laves 0.32, BCC+Sec 0.12 |
 
-The check is neutral to slightly negative for the new model. BCC+Laves is in the top 3 for all three alloys with every model. It is the top combination for two of the three with the previous model and for none with either extra trees model, where it comes second or third behind BCC or `other`. Laves probabilities are not higher than the previous model's (0.34 to 0.42 vs 0.39 to 0.50), although `h_min_pair` keeps them above those of extra trees without it (0.17 to 0.38). For the 16% Al alloy, the final model leans towards B2. Three alloys are an illustration, not a validation.
+The result is mixed. Top-3 accuracy is unchanged: BCC+Laves is in the top 3 for all three alloys with every model. Top-1 accuracy fell. BCC+Laves was the top combination for two of the three alloys with the previous model and is top for none with the final model. For the 5% and 2% Al alloys, BCC is ahead of BCC+Laves by 0.06 and 0.02. For the 16% Al alloy, `other` leads with 0.55 and BCC+Laves is third with 0.13. Laves probabilities are not higher than the previous model's (0.34 to 0.42 vs 0.39 to 0.50). Compared with extra trees without it, `h_min_pair` raises the B2 probability for all three alloys (0.23 to 0.54, 0.01 to 0.22 and 0.02 to 0.16), although none of them is reported with B2. No training alloy contains Al together with both Cr and Zr, so these compositions are outside the data the model has seen (see Limitations). Three alloys are an illustration, not a validation.
 
 ### Phase combinations
 
-Each distinct combination of the five phases is treated as one class (for example `BCC+FCC` or `BCC+Laves`). Combinations with fewer than 15 records are merged into one `rare_combo` class, which leaves 11 classes. The most frequent are BCC (488 records), FCC (273), BCC+Sec (104), FCC+Sec (100) and BCC+FCC (94).
+Each distinct combination of the five phases is treated as one class (for example `BCC+FCC` or `BCC+Laves`). Combinations with fewer than 15 records are merged into one `rare_combo` class, which leaves 11 classes. The most frequent are BCC (488 records), FCC (273), BCC+Sec (104), FCC+Sec (100) and BCC+FCC (94). Brier is the alloy-level multiclass Brier score (sum over classes) and ECE the calibration error of the top-1 confidence (10 bins), both lower is better.
 
-| Inputs (balanced random forest unless stated) | Top-1 accuracy | Top-3 accuracy |
-|---|---|---|
-| 6 physics descriptors | 0.652 ± 0.009 | 0.904 ± 0.013 |
-| 6 physics descriptors + processing | 0.676 ± 0.013 | 0.910 ± 0.013 |
-| Unweighted extra trees, 11 inputs | 0.699 ± 0.009 | 0.907 ± 0.006 |
-| **Unweighted extra trees, 12 inputs with h_min_pair (final)** | **0.712 ± 0.009** | **0.913 ± 0.008** |
-| Majority-class baseline | 0.259 | |
+| Inputs (balanced random forest unless stated) | Top-1 accuracy | Top-3 accuracy | Brier | ECE |
+|---|---|---|---|---|
+| 6 physics descriptors | 0.652 ± 0.009 | 0.904 ± 0.013 | 0.495 ± 0.005 | 0.052 ± 0.011 |
+| 6 physics descriptors + processing (previous) | 0.676 ± 0.013 | 0.910 ± 0.013 | 0.472 ± 0.005 | 0.066 ± 0.007 |
+| Balanced extra trees, 12 inputs | 0.714 ± 0.007 | 0.914 ± 0.006 | 0.412 ± 0.003 | 0.048 ± 0.003 |
+| Unweighted extra trees, 11 inputs | 0.699 ± 0.009 | 0.907 ± 0.006 | 0.428 ± 0.007 | 0.047 ± 0.018 |
+| **Unweighted extra trees, 12 inputs with h_min_pair (final)** | **0.712 ± 0.009** | **0.913 ± 0.008** | **0.409 ± 0.005** | **0.042 ± 0.011** |
+| Majority-class baseline | 0.259 | | | |
 
-For the combination model, balanced and unweighted extra trees have the same accuracy (12 inputs: top-1 0.714 vs 0.712, top-3 0.914 vs 0.913), but the unweighted model is better calibrated: alloy-level multiclass Brier 0.409 vs 0.412, and top-1 confidence ECE 0.042 vs 0.048 at alloy level and 0.044 vs 0.061 at row level. The final combination model is therefore unweighted. Dropping the class weights also helps the random forest (top-1 0.676 to 0.698).
+Compared with the previous combination model (balanced random forest, 11 inputs), top-3 accuracy is essentially unchanged (0.910 to 0.913). The gain is in top-1 accuracy (0.676 to 0.712) and probability quality: alloy-level multiclass Brier score falls from 0.472 to 0.409 and the calibration error of the top-1 confidence from 0.066 to 0.042.
+
+For the combination model, balanced and unweighted extra trees have the same accuracy (12 inputs: top-1 0.714 vs 0.712, top-3 0.914 vs 0.913), but the unweighted model is better calibrated: alloy-level multiclass Brier 0.409 vs 0.412, and top-1 confidence ECE 0.042 vs 0.048. The final combination model is therefore unweighted. Dropping the class weights also helps the random forest (top-1 0.676 to 0.698).
 
 ### Baseline: BCC / FCC / other
 
@@ -119,10 +127,6 @@ The first version of this project predicted three classes. Alloy-level results w
 | **Random forest (balanced)** | **0.722 ± 0.018** | **0.786 ± 0.013** | **0.748 ± 0.014** | 0.652 ± 0.025 | 0.823 ± 0.017 |
 
 Adding mixing enthalpy left the random forest unchanged (alloy macro F1 0.748 to 0.748) and improved logistic regression (0.675 to 0.700, alloy accuracy 0.724 to 0.749). The 3-class setup hides most of the structure, since `other` lumps together B2, Laves and secondary-phase alloys, which is why the project moved to multi-label prediction.
-
-![Feature importance](research/feature_importance.png)
-
-Impurity-based feature importance of the 3-class random forest, trained on the six original physics descriptors and the five processing flags. The five processing flags are summed into one bar (Process). VEC contributes the most (about 0.28), followed by mean melting point (about 0.19), size mismatch (about 0.15) and mixing enthalpy (about 0.14). Processing as a whole contributes about 0.06. These values come from one model fitted on all data and are less reliable than the permutation importances above, which are computed on held-out folds.
 
 ## Web app
 
@@ -158,12 +162,12 @@ cleaned_data.csv --> train_final.py --> model.joblib --> app.py
 | `research/data.py` | Cleans column names, drops unused columns, removes rows with missing microstructure or processing method |
 | `research/feature.py` | Parses formulas into element fractions and computes composition-based descriptors, including mixing enthalpy and the strongest pair enthalpy |
 | `research/label.py` | Splits the microstructure string into binary phase labels |
-| `research/modelling.py` | 3-class baseline with grouped cross-validation, and the feature importance figure for the six original physics descriptors and the processing flags |
-| `research/modelling_multilabel.py` | Multi-label evaluation: per-phase average precision for the baseline models, the random forest vs extra trees and `h_min_pair` comparison, permutation importance of the physics descriptors, and phase-combination accuracy |
+| `research/modelling.py` | 3-class baseline with grouped cross-validation, and impurity importances of the 3-class random forest |
+| `research/modelling_multilabel.py` | Multi-label evaluation: per-phase AP for the baseline models, the random forest vs extra trees and `h_min_pair` comparison, class weighting and calibration of the final model, permutation importance of the seven descriptors and `research/feature_importance.png`, and phase-combination accuracy and calibration |
 | `research/leakage.py` | Random vs composition-grouped cross-validation for the per-phase and combination random forests, writes `leakage_results.csv` |
 | `research/calibration.py` | Reliability curves, Brier score and ECE of the per-phase forests (balanced and unweighted, with and without sigmoid and isotonic calibration), and the reliability figure |
 | `featurize.py` | Computes the same descriptors for a single composition typed into the app |
-| `train_final.py` | Trains the five phase models and the combination model on all data and writes `model.joblib` |
+| `train_final.py` | Trains the five phase models and the combination model (unweighted extra trees, 12 inputs) on all data and writes `model.joblib` |
 | `app.py` | Streamlit app |
 | `miedema_matrix.csv` | Symmetric 28 x 28 matrix of pair mixing enthalpies built from `MiedemaLiquidDeltaHf.tsv` |
 
@@ -231,16 +235,18 @@ With the 6 physics descriptors alone the gaps are BCC +0.013, FCC +0.010, B2 +0.
 
 - Composition and a coarse processing category are the only inputs. Heat treatment, which controls precipitation of secondary phases, is not captured.
 - Laves and B2 predictions are the least reliable, and Laves AP varies the most across seeds.
+- No training alloy contains Al together with both Cr and Zr, so Al-bearing NbCrTiZr-type alloys such as those in the external check are extrapolation. Al does appear with Nb, Ti and Zr in 64 training records.
 - 32 formulas carry conflicting labels across records (different processing, or label noise), which caps achievable accuracy.
 - Compositions that differ only slightly (for example Al0.3 and Al0.304) are treated as different alloys and can still fall on opposite sides of a split.
 - 19 element pairs have no tabulated Miedema value and are set to zero when computing mixing enthalpy.
-- Probabilities are not post-hoc calibrated, and the permutation importances above come from a single seed of the random forest.
+- Probabilities are not post-hoc calibrated. The calibration study above found that sigmoid and isotonic calibration hurt Laves for the random forest; it has not been repeated for extra trees. The permutation importances above come from a single split seed of the final model.
 - VEC values are hand-entered and follow one literature convention.
 
 ## Possible extensions
 
+- Repeat the calibration study (`research/calibration.py`) for the extra trees models, including post-hoc calibration of B2 and secondary phases
+- Test the model on more alloys from outside the dataset, especially Al-bearing refractory compositions with Cr and Zr
 - Test whether dropping size mismatch alone changes Laves performance
-- Calibrate the probabilities (the Omega parameter was tried for Laves and did not help)
 - Use the same features for hardness and yield strength regression
 
 ## Reproduce
