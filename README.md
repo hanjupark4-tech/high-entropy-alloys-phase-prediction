@@ -39,6 +39,26 @@ Permutation importance of each physics descriptor (random forest, seed 0): the d
 
 VEC alone drives BCC and FCC, matching the classical VEC rule. Laves depends most on melting point, VEC and mixing enthalpy. B2 depends most on mixing enthalpy and size mismatch, but every descriptor contributes. Correlated descriptors share importance, so a low value does not prove a feature is unimportant.
 
+### Probability calibration
+
+The per-phase forests output probabilities, so it matters whether those probabilities match observed frequencies. `research/calibration.py` checks this under the same grouped 5-fold CV and 5 seeds, using the physics + processing inputs. It compares a forest trained with `class_weight="balanced"` against an unweighted forest, each raw and with sigmoid or isotonic calibration. The calibrators are fitted on grouped inner-CV predictions inside each training fold, so no alloy is used both to fit a calibrator and to test it. Brier score and expected calibration error (ECE, 10 bins) are computed per record.
+
+| Phase | Prevalence | RF balanced: mean p, Brier, ECE | RF unweighted: mean p, Brier, ECE | Balanced + sigmoid: Brier, ECE | Balanced + isotonic: Brier, ECE |
+|---|---|---|---|---|---|
+| BCC | 0.656 | 0.632, 0.061, 0.052 | 0.651, 0.062, 0.053 | 0.060, 0.037 | 0.059, 0.028 |
+| FCC | 0.407 | 0.418, 0.042, 0.034 | 0.408, 0.042, 0.039 | 0.043, 0.021 | 0.043, 0.016 |
+| B2 | 0.114 | 0.147, 0.058, 0.038 | 0.116, 0.055, 0.030 | 0.055, 0.015 | 0.057, 0.033 |
+| Laves | 0.077 | 0.104, 0.052, 0.036 | 0.081, 0.053, 0.022 | 0.054, 0.027 | 0.057, 0.029 |
+| Sec | 0.199 | 0.297, 0.106, 0.102 | 0.240, 0.094, 0.066 | 0.091, 0.039 | 0.091, 0.029 |
+
+- **`class_weight="balanced"` inflates minority-phase probabilities under grouped CV.** Secondary-phase probabilities average 0.30 against an observed rate of 0.20 (ECE 0.10), and B2 averages 0.15 against 0.11. BCC and FCC are already close to calibrated.
+- **Dropping the class weighting removes most of this bias without hurting ranking.** The unweighted forest's alloy-level AP is 0.976 (BCC), 0.975 (FCC), 0.819 (B2), 0.568 (Laves) and 0.839 (Sec). The balanced forest's AP, shown in the table above, is 0.974, 0.975, 0.830, 0.552 and 0.839.
+- **Sigmoid and isotonic calibration hurt Laves.** There are too few Laves alloys to fit a calibrator, so Laves Brier rises from 0.052 to 0.054 (sigmoid) and 0.057 (isotonic), and Laves AP falls from 0.51 to 0.47 and 0.42 at record level. For B2 and secondary phases, calibration lowers ECE further. Both calibrators also cost about 0.02 AP on FCC.
+
+![Reliability curves](research/calibration_reliability.png)
+
+Reliability curves pooled over the 5 seeds, per record. Bins with fewer than 10 records are not shown.
+
 ### Phase combinations
 
 Each distinct combination of the five phases is treated as one class (for example `BCC+FCC` or `BCC+Laves`). Combinations with fewer than 15 records are merged into one `rare_combo` class, which leaves 11 classes. The most frequent are BCC (488 records), FCC (273), BCC+Sec (104), FCC+Sec (100) and BCC+FCC (94).
@@ -102,6 +122,7 @@ cleaned_data.csv --> train_final.py --> model.joblib --> app.py
 | `research/modelling.py` | 3-class baseline with grouped cross-validation, and the feature importance figure for the 11 model inputs |
 | `research/modelling_multilabel.py` | Multi-label evaluation: per-phase average precision for all four models, permutation importance of the physics descriptors, and the phase-combination comparison (physics only vs physics + processing) |
 | `research/leakage.py` | Random vs composition-grouped cross-validation for the per-phase and combination random forests, writes `leakage_results.csv` |
+| `research/calibration.py` | Reliability curves, Brier score and ECE of the per-phase forests (balanced and unweighted, with and without sigmoid and isotonic calibration), and the reliability figure |
 | `featurize.py` | Computes the same descriptors for a single composition typed into the app |
 | `train_final.py` | Trains the five phase models and the combination model on all data and writes `model.joblib` |
 | `app.py` | Streamlit app |
@@ -191,6 +212,7 @@ python research/feature.py
 python research/label.py
 python research/modelling_multilabel.py
 python research/leakage.py
+python research/calibration.py
 python train_final.py
 streamlit run app.py
 ```
