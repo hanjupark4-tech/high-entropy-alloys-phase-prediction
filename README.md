@@ -16,28 +16,28 @@ One random forest per phase. The metric is average precision (AP). A model with 
 
 | Phase | Prevalence | Logistic regression, all features | RF, all 43 features | RF, 6 physics descriptors | RF, physics + processing |
 |---|---|---|---|---|---|
-| BCC | 0.628 | 0.944 ± 0.002 | 0.985 ± 0.001 | 0.972 ± 0.003 | 0.975 ± 0.003 |
-| FCC | 0.471 | 0.936 ± 0.011 | 0.984 ± 0.003 | 0.975 ± 0.004 | 0.980 ± 0.002 |
-| B2 | 0.148 | 0.564 ± 0.016 | 0.831 ± 0.016 | 0.782 ± 0.029 | 0.806 ± 0.024 |
-| Laves | 0.071 | 0.343 ± 0.038 | 0.570 ± 0.062 | 0.426 ± 0.032 | 0.514 ± 0.040 |
-| Secondary phase | 0.305 | 0.622 ± 0.016 | 0.845 ± 0.008 | 0.817 ± 0.009 | 0.834 ± 0.010 |
+| BCC | 0.628 | 0.939 ± 0.005 | 0.985 ± 0.001 | 0.975 ± 0.003 | 0.974 ± 0.005 |
+| FCC | 0.471 | 0.937 ± 0.002 | 0.981 ± 0.003 | 0.969 ± 0.007 | 0.975 ± 0.009 |
+| B2 | 0.148 | 0.583 ± 0.012 | 0.850 ± 0.023 | 0.780 ± 0.017 | 0.830 ± 0.025 |
+| Laves | 0.071 | 0.384 ± 0.031 | 0.594 ± 0.035 | 0.474 ± 0.020 | 0.552 ± 0.036 |
+| Secondary phase | 0.305 | 0.630 ± 0.011 | 0.854 ± 0.014 | 0.825 ± 0.013 | 0.839 ± 0.015 |
 
-- **Six physics descriptors recover almost all of the BCC and FCC signal.** They come within 0.013 AP of the full 43-feature model.
-- **The gap grows for harder phases.** It is 0.03 to 0.05 for B2 and secondary phases and 0.14 for Laves. Laves formation probably depends on which elements are present, not only on bulk descriptors. Adding the processing route recovers part of the gap (0.43 to 0.51).
+- **Six physics descriptors recover almost all of the BCC and FCC signal.** They come within 0.012 AP of the full 43-feature model.
+- **The gap grows for harder phases.** It is 0.03 to 0.07 for B2 and secondary phases and 0.12 for Laves. Laves formation probably depends on which elements are present, not only on bulk descriptors. Adding the processing route recovers part of the gap (0.47 to 0.55).
 - **Laves is the hardest phase.** It appears in about 7% of alloys and its AP varies the most across seeds.
 
 Permutation importance of each physics descriptor (random forest, drop in AP when the feature is shuffled, seed 0):
 
 | Descriptor | BCC | FCC | B2 | Laves | Secondary |
 |---|---|---|---|---|---|
-| delta (size mismatch) | 0.003 | 0.010 | 0.179 | 0.039 | 0.124 |
-| delta H mix | 0.001 | 0.011 | 0.235 | 0.209 | 0.083 |
-| delta S mix | 0.001 | 0.007 | 0.126 | -0.025 | 0.164 |
-| VEC | 0.131 | 0.307 | 0.153 | 0.186 | 0.092 |
-| mean melting point | 0.023 | 0.019 | 0.201 | 0.228 | 0.111 |
-| delta chi | 0.003 | 0.020 | 0.121 | 0.097 | 0.091 |
+| delta (size mismatch) | 0.009 | 0.008 | 0.181 | 0.077 | 0.122 |
+| delta H mix | 0.007 | 0.007 | 0.258 | 0.196 | 0.063 |
+| delta S mix | 0.009 | 0.006 | 0.148 | -0.021 | 0.119 |
+| VEC | 0.120 | 0.286 | 0.209 | 0.165 | 0.100 |
+| mean melting point | 0.030 | 0.017 | 0.258 | 0.175 | 0.108 |
+| delta chi | 0.011 | 0.009 | 0.096 | 0.029 | 0.107 |
 
-VEC alone drives BCC and FCC, matching the classical VEC rule. B2 and Laves depend on mixing enthalpy and melting point, while size mismatch matters little for Laves here. Correlated descriptors share importance, so a low value does not prove a feature is unimportant.
+VEC alone drives BCC and FCC, matching the classical VEC rule. B2 and Laves depend on mixing enthalpy and melting point, while size mismatch matters less for Laves here. Correlated descriptors share importance, so a low value does not prove a feature is unimportant.
 
 ### Phase combinations
 
@@ -45,8 +45,8 @@ Each distinct combination of the five phases is treated as one class (for exampl
 
 | Inputs | Top-1 accuracy | Top-3 accuracy |
 |---|---|---|
-| 6 physics descriptors | 0.672 ± 0.007 | 0.910 ± 0.011 |
-| 6 physics descriptors + processing | 0.695 ± 0.011 | 0.922 ± 0.009 |
+| 6 physics descriptors | 0.652 ± 0.009 | 0.904 ± 0.013 |
+| 6 physics descriptors + processing | 0.676 ± 0.013 | 0.910 ± 0.013 |
 | Majority-class baseline | 0.259 | |
 
 ### Baseline: BCC / FCC / other
@@ -55,15 +55,15 @@ The first version of this project predicted three classes. Alloy-level results w
 
 | Model | Row macro F1 | Alloy accuracy | Alloy macro F1 | FCC recall | Other recall |
 |---|---|---|---|---|---|
-| Majority-class baseline | 0.216 ± 0.002 | 0.615 | 0.254 | 0.00 | 1.00 |
-| Logistic regression | 0.667 ± 0.009 | 0.719 ± 0.009 | 0.670 ± 0.012 | 0.566 ± 0.042 | 0.763 ± 0.008 |
-| **Random forest (balanced)** | **0.724 ± 0.019** | **0.804 ± 0.006** | **0.754 ± 0.012** | 0.564 ± 0.050 | 0.875 ± 0.006 |
+| Majority-class baseline | 0.214 ± 0.000 | 0.615 | 0.254 | 0.00 | 1.00 |
+| Logistic regression | 0.686 ± 0.021 | 0.724 ± 0.007 | 0.675 ± 0.009 | 0.574 ± 0.021 | 0.777 ± 0.004 |
+| **Random forest (balanced)** | **0.722 ± 0.018** | **0.786 ± 0.013** | **0.748 ± 0.014** | 0.652 ± 0.025 | 0.823 ± 0.017 |
 
-Adding mixing enthalpy left the random forest unchanged (alloy macro F1 0.754 to 0.750) and improved logistic regression (0.670 to 0.704, alloy accuracy 0.719 to 0.752). The 3-class setup hides most of the structure, since `other` lumps together B2, Laves and secondary-phase alloys, which is why the project moved to multi-label prediction.
+Adding mixing enthalpy left the random forest unchanged (alloy macro F1 0.748 to 0.748) and improved logistic regression (0.675 to 0.700, alloy accuracy 0.724 to 0.749). The 3-class setup hides most of the structure, since `other` lumps together B2, Laves and secondary-phase alloys, which is why the project moved to multi-label prediction.
 
 ![Feature importance](research/feature_importance.png)
 
-Impurity-based feature importance of the 3-class random forest, trained on the 11 model inputs. The five processing flags are summed into one bar (Process). VEC contributes the most (about 0.28), followed by mean melting point (about 0.19), size mismatch (about 0.16) and mixing enthalpy (about 0.15). Processing as a whole contributes about 0.06. These values come from one model fitted on all data and are less reliable than the permutation importances above, which are computed on held-out folds.
+Impurity-based feature importance of the 3-class random forest, trained on the 11 model inputs. The five processing flags are summed into one bar (Process). VEC contributes the most (about 0.28), followed by mean melting point (about 0.19), size mismatch (about 0.15) and mixing enthalpy (about 0.14). Processing as a whole contributes about 0.06. These values come from one model fitted on all data and are less reliable than the permutation importances above, which are computed on held-out folds.
 
 ## Web app
 
@@ -100,7 +100,7 @@ cleaned_data.csv --> train_final.py --> model.joblib --> app.py
 | `research/feature.py` | Parses formulas into element fractions and computes composition-based descriptors, including mixing enthalpy |
 | `research/label.py` | Splits the microstructure string into binary phase labels |
 | `research/modelling.py` | 3-class baseline with grouped cross-validation, and the feature importance figure for the 11 model inputs |
-| `research/modelling_multilabel.py` | Multi-label evaluation: defines the per-phase average precision evaluation and runs the phase-combination comparison (physics only vs physics + processing) |
+| `research/modelling_multilabel.py` | Multi-label evaluation: per-phase average precision for all four models, permutation importance of the physics descriptors, and the phase-combination comparison (physics only vs physics + processing) |
 | `research/leakage.py` | Random vs composition-grouped cross-validation for the per-phase and combination random forests, writes `leakage_results.csv` |
 | `featurize.py` | Computes the same descriptors for a single composition typed into the app |
 | `train_final.py` | Trains the five phase models and the combination model on all data and writes `model.joblib` |
@@ -166,8 +166,6 @@ With the 6 physics descriptors alone the gaps are BCC +0.013, FCC +0.010, B2 +0.
 - **Combination accuracy is inflated by about 9 points at top-1** (0.68 to 0.76 with processing).
 - **Removing element fractions does not remove the leakage.** With the 6 physics descriptors only, the random split lifts Laves by 0.39 and B2 by 0.10, more than with all 43 features, because six continuous descriptors are still enough to recognise a repeated composition.
 
-The grouped numbers here come from rerunning the current code with scikit-learn 1.9.1. They match `research/modelling_multilabel.py` exactly, but differ slightly from the tables above (for example combination top-1 0.676 vs 0.695), which were produced with an earlier run.
-
 ## Limitations
 
 - Composition and a coarse processing category are the only inputs. Heat treatment, which controls precipitation of secondary phases, is not captured.
@@ -197,4 +195,4 @@ python train_final.py
 streamlit run app.py
 ```
 
-Run every command from the repository root.
+Run every command from the repository root. The numbers in this README were produced with scikit-learn 1.9.1, the version pinned in `requirements.txt`. Random forest scores shift slightly across scikit-learn versions.
