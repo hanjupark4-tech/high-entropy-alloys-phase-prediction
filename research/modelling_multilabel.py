@@ -47,7 +47,6 @@ models = {
     "rf_balanced": RandomForestClassifier(random_state=42, class_weight="balanced"),
     "rf": RandomForestClassifier(random_state=42),
     "et": ExtraTreesClassifier(random_state=42),
-    "et_balanced": ExtraTreesClassifier(random_state=42, class_weight="balanced"),
 }
 
 seeds = [0, 1, 2, 3, 4]
@@ -147,7 +146,8 @@ def evaluate_combo(model, fold, cols, min_count=15):
 combo_runs = {
     "rf_physics": ("rf_balanced", physics),
     "rf_physics_proc": ("rf_balanced", physics + proc),
-    "et_physics_hmin_proc": ("et_balanced", model_cols),
+    "et_physics_proc": ("et", physics + proc),
+    "et_physics_hmin_proc": ("et", model_cols),
 }
 rows = []
 for fs, (name, cols) in combo_runs.items():

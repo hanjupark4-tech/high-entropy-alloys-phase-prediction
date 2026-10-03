@@ -28,9 +28,9 @@ One classifier per phase. The metric is average precision (AP). A model with no 
 
 ### Final model: extra trees with the strongest pair enthalpy
 
-Two changes improve the rare phases: extra trees instead of a random forest, and a seventh descriptor, `h_min_pair`, the most negative Miedema pair enthalpy among the elements present (for example Ni-Zr or Al-Zr). The concentration-weighted delta H mix averages a single strongly bonding pair away. The table separates the two effects. All four models are unweighted and use the same folds and seeds as above.
+The final model replaces the random forest with extra trees, which is the main source of the gain on the rare phases. It also adds a seventh descriptor, `h_min_pair`: the most negative Miedema pair enthalpy among the elements present (for example Ni-Zr or Al-Zr). This is a smaller, physically motivated addition. The concentration-weighted delta H mix averages one strongly bonding pair away, while intermetallic formation can hinge on it. The table separates the two effects. All four models are unweighted and use the same folds and seeds as above.
 
-| Phase | RF, physics + processing | RF + h_min_pair | ET, physics + processing | **ET + h_min_pair (final)** |
+| Phase | RF, 11 inputs | RF + h_min_pair, 12 inputs | ET, 11 inputs | **ET + h_min_pair, 12 inputs (final)** |
 |---|---|---|---|---|
 | BCC | 0.976 ± 0.004 | 0.978 ± 0.004 | 0.977 ± 0.003 | **0.979 ± 0.003** |
 | FCC | 0.975 ± 0.007 | 0.976 ± 0.008 | 0.982 ± 0.005 | **0.979 ± 0.008** |
@@ -38,10 +38,8 @@ Two changes improve the rare phases: extra trees instead of a random forest, and
 | Laves | 0.568 ± 0.027 | 0.630 ± 0.025 | 0.619 ± 0.031 | **0.657 ± 0.029** |
 | Secondary phase | 0.839 ± 0.011 | 0.848 ± 0.009 | 0.857 ± 0.016 | **0.871 ± 0.011** |
 
-- **For B2 the gain comes from the model.** Extra trees add about 0.035 AP and `h_min_pair` adds nothing.
-- **For Laves both help, and their gains overlap.** Each one alone adds about 0.05 to 0.06, and together they add 0.09. On 10 further split seeds (5 to 14, model seed varied) the Laves gains over the random forest were +0.040 for `h_min_pair` (10 of 10 seeds), +0.065 for extra trees (9 of 10) and +0.076 for both (10 of 10). On top of extra trees, `h_min_pair` added only +0.011 there (6 of 10), which is within seed noise.
-- **For secondary phases the descriptor matters most on top of extra trees** (+0.014 here, +0.020 on seeds 5 to 14, 10 of 10).
-- Extra trees pick split thresholds at random, which gives smoother probability rankings for rare classes. Bootstrapping is not the reason: a random forest without bootstrapping scores the same, and extra trees with bootstrapping keep the gain.
+- **Extra trees drive the Laves and B2 gains.** On 10 further split seeds (5 to 14, model seed varied), extra trees beat the random forest on Laves by +0.065 (9 of 10 seeds) and on B2 by +0.036 (10 of 10). Extra trees pick split thresholds at random, which gives smoother probability rankings for rare classes. Bootstrapping is not the reason: a random forest without bootstrapping scores the same, and extra trees with bootstrapping keep the gain.
+- **`h_min_pair` helps the random forest and secondary phases.** It lifts random-forest Laves AP by +0.040 (10 of 10 seeds 5 to 14) and extra-trees secondary-phase AP by +0.020 (10 of 10). On top of extra trees its Laves gain is +0.011 (6 of 10), which is within seed noise, and it adds nothing for B2.
 - **Class weighting does not matter for extra trees.** Balanced and unweighted extra trees have the same AP (Laves 0.658 vs 0.657) and nearly the same calibration. Unweighted is slightly better for secondary phases (row-level Brier 0.084 vs 0.091), so the final phase models are unweighted.
 - **What did not help Laves:** the Omega parameter, gamma and lambda parameters, VEC spread, radius-ratio descriptors, and gradient-boosted trees (scikit-learn, LightGBM, XGBoost), which scored 0.53 to 0.58. Adding the 28 element fractions raises Laves AP to about 0.72 but makes the model less physics-based, so the app does not use them.
 
@@ -80,15 +78,21 @@ Reliability curves pooled over the 5 seeds, per record. Bins with fewer than 10 
 
 ### Check on three unseen alloys
 
-Three annealed NbCrTiAlZr alloys that are not in the training data, all reported as BCC + Laves (Nb is the balance). The final model trained on all data predicts:
+Three annealed NbCrTiAlZr alloys that are not in the training data, all reported as BCC + Laves (Nb is the balance). Each model is trained on all data.
 
-| Alloy (at.%) | BCC | FCC | B2 | Laves | Sec | Top 3 combinations |
-|---|---|---|---|---|---|---|
-| Nb36Cr16Ti16Al16Zr16 | 0.47 | 0.01 | 0.54 | 0.34 | 0.51 | other combinations 0.39, BCC 0.24, BCC+Laves 0.23 |
-| Nb47Cr16Ti16Al5Zr16 | 0.77 | 0.03 | 0.22 | 0.42 | 0.25 | **BCC+Laves 0.35**, BCC 0.28, other combinations 0.14 |
-| Nb50Cr16Ti16Al2Zr16 | 0.80 | 0.03 | 0.16 | 0.38 | 0.24 | **BCC+Laves 0.36**, BCC 0.31, BCC+Sec 0.10 |
+| Alloy (at.%) | Model | BCC | FCC | B2 | Laves | Sec | Top 3 combinations |
+|---|---|---|---|---|---|---|---|
+| Nb36Cr16Ti16Al16Zr16 | Previous (balanced RF, 11 inputs) | 0.90 | 0.00 | 0.29 | 0.44 | 0.27 | **BCC+Laves 0.35**, BCC 0.28, BCC+Sec 0.16 |
+| | ET, 11 inputs | 0.67 | 0.00 | 0.23 | 0.38 | 0.36 | BCC 0.45, other 0.21, BCC+Laves 0.16 |
+| | ET + h_min_pair (final) | 0.47 | 0.01 | 0.54 | 0.34 | 0.51 | other 0.55, BCC 0.25, BCC+Laves 0.13 |
+| Nb47Cr16Ti16Al5Zr16 | Previous | 0.98 | 0.01 | 0.00 | 0.50 | 0.19 | **BCC+Laves 0.41**, BCC+Sec 0.31, BCC 0.27 |
+| | ET, 11 inputs | 0.88 | 0.02 | 0.01 | 0.25 | 0.19 | BCC 0.44, BCC+Laves 0.38, BCC+Sec 0.12 |
+| | ET + h_min_pair (final) | 0.77 | 0.03 | 0.22 | 0.42 | 0.25 | BCC 0.35, BCC+Laves 0.29, other 0.14 |
+| Nb50Cr16Ti16Al2Zr16 | Previous | 0.99 | 0.02 | 0.02 | 0.39 | 0.33 | BCC+Sec 0.40, BCC 0.29, BCC+Laves 0.25 |
+| | ET, 11 inputs | 0.90 | 0.02 | 0.02 | 0.17 | 0.13 | BCC 0.51, BCC+Laves 0.25, BCC+Sec 0.18 |
+| | ET + h_min_pair (final) | 0.80 | 0.03 | 0.16 | 0.38 | 0.24 | BCC 0.34, BCC+Laves 0.32, BCC+Sec 0.12 |
 
-BCC+Laves is the top combination for the two low-Al alloys and third for the 16% Al alloy, where the model leans towards B2 ordering instead. Laves probability is 5 to 6 times its 7% base rate in all three but stays below 0.5. Three alloys are an illustration, not a validation.
+The check is neutral to slightly negative for the new model. BCC+Laves is in the top 3 for all three alloys with every model. It is the top combination for two of the three with the previous model and for none with either extra trees model, where it comes second or third behind BCC or `other`. Laves probabilities are not higher than the previous model's (0.34 to 0.42 vs 0.39 to 0.50), although `h_min_pair` keeps them above those of extra trees without it (0.17 to 0.38). For the 16% Al alloy, the final model leans towards B2. Three alloys are an illustration, not a validation.
 
 ### Phase combinations
 
@@ -98,8 +102,11 @@ Each distinct combination of the five phases is treated as one class (for exampl
 |---|---|---|
 | 6 physics descriptors | 0.652 ± 0.009 | 0.904 ± 0.013 |
 | 6 physics descriptors + processing | 0.676 ± 0.013 | 0.910 ± 0.013 |
-| **Extra trees, 7 physics descriptors + processing (final)** | **0.714 ± 0.007** | **0.914 ± 0.006** |
+| Unweighted extra trees, 11 inputs | 0.699 ± 0.009 | 0.907 ± 0.006 |
+| **Unweighted extra trees, 12 inputs with h_min_pair (final)** | **0.712 ± 0.009** | **0.913 ± 0.008** |
 | Majority-class baseline | 0.259 | |
+
+For the combination model, balanced and unweighted extra trees have the same accuracy (12 inputs: top-1 0.714 vs 0.712, top-3 0.914 vs 0.913), but the unweighted model is better calibrated: alloy-level multiclass Brier 0.409 vs 0.412, and top-1 confidence ECE 0.042 vs 0.048 at alloy level and 0.044 vs 0.061 at row level. The final combination model is therefore unweighted. Dropping the class weights also helps the random forest (top-1 0.676 to 0.698).
 
 ### Baseline: BCC / FCC / other
 

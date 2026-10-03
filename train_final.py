@@ -24,7 +24,7 @@ first = ~keys.duplicated()
 phase_models = {}
 for p in PHASES:
     phase_models[p] = ExtraTreesClassifier(random_state=42).fit(Xm, Y[p])
-combo_model = ExtraTreesClassifier(random_state=42, class_weight="balanced").fit(Xm, combo_label)
+combo_model = ExtraTreesClassifier(random_state=42).fit(Xm, combo_label)
 
 meta = {
     "n_rows": int(len(data)),
@@ -40,8 +40,8 @@ meta = {
         "folds": "5-fold grouped by composition, 5 seeds",
         "ap": {"BCC": 0.979, "FCC": 0.979, "B2": 0.859, "Laves": 0.657, "Sec": 0.871},
         "prevalence": {"BCC": 0.628, "FCC": 0.471, "B2": 0.148, "Laves": 0.071, "Sec": 0.305},
-        "top1": 0.714,
-        "top3": 0.914,
+        "top1": 0.712,
+        "top3": 0.913,
         "baseline": 0.259,
     },
     "sklearn_version": sklearn.__version__,
