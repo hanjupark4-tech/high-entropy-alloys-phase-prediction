@@ -38,6 +38,8 @@ def make_fold(seed):
     return f
 
 phases = ["BCC", "FCC", "B2", "Laves", "Sec"]
+pd.set_option("display.width", 200)
+pd.set_option("display.max_columns", None)
 Y = labels[phases]
 models = {
     "dummy": DummyClassifier(strategy="prior"),
@@ -62,6 +64,47 @@ def evaluate_phase(model, phase, fold, cols=None):
     pa = df.groupby("group").agg(true=("true", "mean"), score=("score", "mean"))
     true = (pa["true"] >= 0.5).astype(int)
     return average_precision_score(true, pa["score"]), true.mean()
+
+feature_sets = {
+    "logreg_all": ("logreg", None),
+    "rf_all": ("rf_balanced", None),
+    "rf_physics": ("rf_balanced", physics),
+    "rf_physics_proc": ("rf_balanced", physics + proc),
+}
+rows = []
+for fs, (name, cols) in feature_sets.items():
+    for phase in phases:
+        for s in seeds:
+            ap, prev = evaluate_phase(models[name], phase, folds[s], cols)
+            rows.append({"fs": fs, "phase": phase, "seed": s, "ap": ap, "prevalence": prev})
+ap = pd.DataFrame(rows)
+print(ap.groupby(["phase", "fs"])["ap"].agg(["mean", "std"]).unstack().round(3).loc[phases])
+print(ap.groupby("phase")["prevalence"].mean().round(3).loc[phases])
+
+def permutation_importance_phase(model, phase, fold, cols, seed=0):
+    # drop in alloy-level AP when one descriptor is shuffled across the alloys of each test fold;
+    # one value per composition, applied to all its rows, so repeated alloys are not over-weighted
+    # (descriptors are identical within a composition up to rounding of the formula)
+    rng = np.random.default_rng(seed)
+    X = feature[cols]
+    base = pd.Series(0.0, index=feature.index)
+    perm = {c: pd.Series(0.0, index=feature.index) for c in cols}
+    for k in range(5):
+        train, test = fold != k, fold == k
+        m = clone(model).fit(X[train], Y.loc[train, phase])
+        base[test] = m.predict_proba(X[test])[:, 1]
+        for c in cols:
+            Xp = X[test].copy()
+            per_alloy = Xp[c].groupby(group[test]).first()
+            shuffled = pd.Series(rng.permutation(per_alloy.values), index=per_alloy.index)
+            Xp[c] = group[test].map(shuffled).values
+            perm[c][test] = m.predict_proba(Xp)[:, 1]
+    true = (Y[phase].groupby(group).mean() >= 0.5).astype(int)
+    ap0 = average_precision_score(true, base.groupby(group).mean().loc[true.index])
+    return {c: ap0 - average_precision_score(true, perm[c].groupby(group).mean().loc[true.index]) for c in cols}
+
+imp = pd.DataFrame({p: permutation_importance_phase(models["rf_balanced"], p, folds[0], physics) for p in phases})
+print(imp.round(3))
 
 combo = Y.apply(lambda r: "+".join([p for p in phases if r[p] == 1]) or "none", axis=1)
 print(combo.value_counts())
