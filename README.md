@@ -101,6 +101,7 @@ cleaned_data.csv --> train_final.py --> model.joblib --> app.py
 | `research/label.py` | Splits the microstructure string into binary phase labels |
 | `research/modelling.py` | 3-class baseline with grouped cross-validation, and the feature importance figure for the 11 model inputs |
 | `research/modelling_multilabel.py` | Multi-label evaluation: defines the per-phase average precision evaluation and runs the phase-combination comparison (physics only vs physics + processing) |
+| `research/leakage.py` | Random vs composition-grouped cross-validation for the per-phase and combination random forests, writes `leakage_results.csv` |
 | `featurize.py` | Computes the same descriptors for a single composition typed into the app |
 | `train_final.py` | Trains the five phase models and the combination model on all data and writes `model.joblib` |
 | `app.py` | Streamlit app |
@@ -139,6 +140,34 @@ The dataset contains many repeated compositions: 831 of 1354 rows repeat a formu
 - Every comparison is repeated over 5 split seeds. Differences smaller than the seed-to-seed standard deviation are treated as noise.
 - Feature scaling for logistic regression is fitted inside each training fold through a pipeline.
 
+## How much does a random split inflate the scores?
+
+`research/leakage.py` reruns the random forest models with a plain random split and compares them to the grouped split. Both use 5 folds, the same 5 seeds, the same stratification label and the same alloy-level metrics. The only difference is that the random split (`StratifiedKFold`) ignores composition, so on average 72% of test rows have the same composition in the training folds (0% for the grouped split). The gap is random minus grouped, mean ± std over the 5 seeds.
+
+| Phase | Prevalence | RF all 43 features: grouped | random | gap | RF physics + processing: grouped | random | gap |
+|---|---|---|---|---|---|---|---|
+| BCC | 0.628 | 0.985 ± 0.001 | 0.991 ± 0.001 | +0.006 ± 0.001 | 0.974 ± 0.005 | 0.988 ± 0.003 | +0.014 ± 0.007 |
+| FCC | 0.471 | 0.981 ± 0.003 | 0.989 ± 0.005 | +0.008 ± 0.006 | 0.975 ± 0.009 | 0.981 ± 0.009 | +0.006 ± 0.014 |
+| B2 | 0.148 | 0.850 ± 0.023 | 0.902 ± 0.012 | +0.053 ± 0.022 | 0.830 ± 0.025 | 0.893 ± 0.022 | +0.063 ± 0.017 |
+| Laves | 0.071 | 0.594 ± 0.035 | 0.892 ± 0.020 | **+0.299 ± 0.033** | 0.552 ± 0.036 | 0.859 ± 0.021 | **+0.307 ± 0.044** |
+| Secondary phase | 0.305 | 0.854 ± 0.014 | 0.906 ± 0.006 | +0.051 ± 0.012 | 0.839 ± 0.015 | 0.898 ± 0.009 | +0.059 ± 0.016 |
+
+With the 6 physics descriptors alone the gaps are BCC +0.013, FCC +0.010, B2 +0.097, Laves +0.389 and secondary phase +0.070 (Laves AP 0.474 grouped vs 0.863 random).
+
+| Phase combinations | Grouped | Random | Gap |
+|---|---|---|---|
+| Physics, top-1 | 0.652 ± 0.009 | 0.741 ± 0.007 | +0.089 ± 0.009 |
+| Physics, top-3 | 0.904 ± 0.013 | 0.934 ± 0.007 | +0.031 ± 0.013 |
+| Physics + processing, top-1 | 0.676 ± 0.013 | 0.764 ± 0.004 | +0.088 ± 0.010 |
+| Physics + processing, top-3 | 0.910 ± 0.013 | 0.944 ± 0.012 | +0.034 ± 0.009 |
+
+- **Leakage is small for BCC and FCC and large for the rare phases.** BCC and FCC gain under 0.015 AP, close to seed noise, because VEC separates them well for unseen alloys too. B2 and secondary phases gain 0.05 to 0.10.
+- **A random split makes Laves look solved.** Laves AP rises from about 0.5 to about 0.86 to 0.89, so most of the apparent Laves skill under a random split is memorising repeated alloys.
+- **Combination accuracy is inflated by about 9 points at top-1** (0.68 to 0.76 with processing).
+- **Removing element fractions does not remove the leakage.** With the 6 physics descriptors only, the random split lifts Laves by 0.39 and B2 by 0.10, more than with all 43 features, because six continuous descriptors are still enough to recognise a repeated composition.
+
+The grouped numbers here come from rerunning the current code with scikit-learn 1.9.1. They match `research/modelling_multilabel.py` exactly, but differ slightly from the tables above (for example combination top-1 0.676 vs 0.695), which were produced with an earlier run.
+
 ## Limitations
 
 - Composition and a coarse processing category are the only inputs. Heat treatment, which controls precipitation of secondary phases, is not captured.
@@ -151,7 +180,6 @@ The dataset contains many repeated compositions: 831 of 1354 rows repeat a formu
 
 ## Possible extensions
 
-- Compare random and grouped splits directly to quantify how much leakage inflates published results
 - Test whether dropping size mismatch alone changes Laves performance
 - Add the Omega parameter and calibrate the probabilities
 - Use the same features for hardness and yield strength regression
@@ -164,6 +192,7 @@ python research/data.py
 python research/feature.py
 python research/label.py
 python research/modelling_multilabel.py
+python research/leakage.py
 python train_final.py
 streamlit run app.py
 ```
